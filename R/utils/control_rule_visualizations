@@ -1,0 +1,85 @@
+
+b.lim <- 19958
+b.tar <- 38555
+
+f.min <- 0
+f.max <- 0.2
+
+biomass <- seq(0, 60000, by=50)
+
+compute.f <- function(biomass, b.lim=19956, b.tar=38555, f.min=0, f.max=0.2){
+    f <- 0
+    if(biomass <= b.lim){
+        f <- f.min
+    }else if( biomass > b.lim && biomass <= b.tar){
+        f <- (biomass - b.lim) * f.max / (b.tar - b.lim)
+    }else{
+        f <- f.max
+    }
+
+    return(f)
+}
+
+fs <- apply(matrix(biomass), 1, compute.f)
+
+par(mar=c(5,6,4,2.5)+0.1)
+plot(biomass, fs, type="l", ylim=c(0, 0.5), col="black", lwd=6,
+     ylab="Fishing Mortality Rate (F)", xlab="Spawning Stock Biomass (1000 mt)",
+     yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.75)
+abline(v=b.lim, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+abline(v=b.tar, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+text(x=b.lim+4000, y=0.4, expression(bold("B"["limit"])), cex=2.00)
+text(x=b.tar+4000, y=0.4, expression(bold("B"["target"])), cex=2.00)
+title(main="PWS Herring Harvest Control Rule", cex.main=2.25)
+axis(1, at=seq(0, 60000, 10000), labels=seq(0, 60, 10), cex.axis=1.75)
+axis(2, at=seq(0, 0.5, 0.1), labels=seq(0, 0.5, 0.1), cex.axis=1.75)
+
+
+fs.base             <- apply(matrix(biomass), 1, compute.f)
+fs.high.harvest     <- apply(matrix(biomass), 1, compute.f, f.max=0.3)
+fs.low.harvest      <- apply(matrix(biomass), 1, compute.f, f.max=0.15)
+fs.low.b0           <- apply(matrix(biomass), 1, compute.f, b.lim=10000, b.tar=30000)
+fs.low.thresh       <- apply(matrix(biomass), 1, compute.f, b.lim=10000)
+fs.constant.f.00    <- apply(matrix(biomass), 1, compute.f, b.lim=100000)
+
+control.rule.df <- data.frame(biomass=rep(biomass, 6),
+                              control.rule=rep(c("Current", "High F", "Low F", "Lower B0", "Low Biomass", "No Fishing"), each=length(biomass)),
+                              f.rate=c(fs.base, fs.high.harvest, fs.low.harvest, fs.low.b0, fs.low.thresh, fs.constant.f.00),
+                              limit.thresh=rep(c(19958, 19958, 19958, 10000, 10000, 100000), each=length(biomass)),
+                              target.thresh=rep(c(38555, 38555, 38555, 30000, 38555, 100000), each=length(biomass)))
+
+control.rule.df$control.rule <- factor(control.rule.df$control.rule, levels=c("Current", "High F", "Low F", "Lower B0", "Low Biomass", "No Fishing"))
+hcr.df.2 <- control.rule.df
+hcr.df.2$rule <- hcr.df.2$control.rule
+hcr.df.2 <- subset(hcr.df.2, select=-c(control.rule))
+
+ggplot(control.rule.df)+
+    geom_line(aes(x=biomass, y=f.rate, color=control.rule), size=2)+
+    geom_line(data=hcr.df.2, aes(x=biomass, y=f.rate, color=rule), alpha=0.1, size=2)+
+    geom_vline(aes(xintercept=limit.thresh, color=control.rule), linetype = "longdash")+
+    geom_vline(aes(xintercept=target.thresh, color=control.rule), linetype = "longdash")+
+    ylim(0, 0.4)+
+    xlim(0, 60000)+
+    scale_color_manual(values=c("black", "red", "blue", rgb(0, 0.65, 0), "#530d7e", "orange"))+
+    facet_wrap(~control.rule)+
+    labs(x="Spawning Biomass", y="Fishing Rate", title="Candidate Harvest Control Rules", color="Control Rule")
+
+b.lim <- 10000
+b.tar <- 38555
+
+par(mar=c(5,6,4,2.5)+0.1)
+plot(biomass, fs.base, type="l", ylim=c(0, 0.5), col=alpha("black", 0.25), lwd=6,
+     ylab="Fishing Mortality Rate (F)", xlab="Spawning Stock Biomass (1000 mt)",
+     yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.5, font.lab=2)
+lines(biomass, fs.high.harvest, lwd=6, col=alpha("red", 0.5))
+lines(biomass, fs.low.harvest, lwd=6, col=alpha("blue", 0.5))
+lines(biomass, fs.low.b0, lwd=6, col=rgb(0, 0.65, 0, 0.5))
+lines(biomass, fs.low.thresh, lwd=6, col="#530d7e")
+abline(v=b.lim, col=alpha("#530d7e", 0.5), lwd=4, lty=2)
+abline(v=b.tar, col=alpha("#530d7e", 0.5), lwd=4, lty=2)
+text(x=b.lim+4000, y=0.4, expression(bold("B"["limit"])), cex=2.00)
+text(x=b.tar-5000, y=0.45, expression(bold("B"["target"])), cex=2.00)
+title(main="Candidate Harvest Control Rules", cex.main=2.25)
+axis(1, at=seq(0, 60000, 10000), labels=seq(0, 60, 10), cex.axis=1.75, font=2, lwd=2)
+axis(2, at=seq(0, 0.5, 0.1), labels=seq(0, 0.5, 0.1), cex.axis=1.75, font=2, lwd=2)
+text(x=48000, y=0.22, "Lower Blim HCR", cex=1.75, font=2)
