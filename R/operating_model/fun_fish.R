@@ -26,18 +26,20 @@ fun_fish <- function(target.harvest.rule, ssb.true, naa.true, weight.at.age, fis
     alloc <- c(sacroe.seine.alloc, sacroe.gillnet.alloc, nopound.alloc, inpound.alloc, foodbait.alloc)
     
     # Total projected yield
-    yield <- target.harvest.rule*ssb.true
-    
+    #yield <- target.harvest.rule*ssb.true
+        
     # Fishery specific exploitable biomass using matrix of 
     # age-specific selectivity (column) by fishery (row)
     fishery.exploitable.biomass <- t(apply(fishery.selectivity, 1, function(x) naa.true*mean(x)*weight.at.age))
+
+    exploitable.yield <- target.harvest.rule*fishery.exploitable.biomass
 
     # Effective exploitation by age and fishery & catch-at-age by fishery
     fishery.eff.exploit.age.comp <- matrix(nrow=n.fisheries, ncol=nage)
     fishery.catch.at.age <-  matrix(nrow=n.fisheries, ncol=nage)
     for(i in 1:n.fisheries){
-        fishery.eff.exploit.age.comp[i, ] <- alloc[i]*yield*fishery.selectivity[i, ]/fishery.exploitable.biomass[i, ]
-        fishery.catch.at.age[i, ] <- naa.true*fishery.eff.exploit.age.comp[i, ]
+        #fishery.eff.exploit.age.comp[i, ] <- alloc[i]*yield*fishery.selectivity[i, ]/fishery.exploitable.biomass[i, ]
+        fishery.catch.at.age[i, ] <- alloc[i]*naa.true*target.harvest.rule
     }
     
     # Now add implementation error (take random normal deviates for each age-specific catch)
