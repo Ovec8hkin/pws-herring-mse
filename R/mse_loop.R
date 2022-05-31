@@ -125,7 +125,7 @@ create.model.dir <- function(directory, year){
     return(paste0(model.dir, "/"))
 }
 
-run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA){
+run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.year=1, assessment=TRUE){
     print(write)
     if(is.na(write)){
       write <- paste0(here::here("results"), "/test")
@@ -181,8 +181,38 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA){
     colnames(ass.biomass) <- c("Year", "Biomass2.5", "Biomass25", "Biomass50", "Biomass75", "Biomass97.5")
     ass.biomass$Year <- 1:nyr.sim
 
-    for(y in 1:nyr.sim){  
+    # Read data from previous, interrupted, model run into the appropiate pop_dyn variables
+    # to facilitate restarting the run at any year necesarry. 
+    if(start.year != 1){
+        # This handles the population dynamics matrices
+        vars <- names(pop_dyn)
+        fnames <- apply(as.matrix(vars), 1, str_replace_all, pattern="[.]", replacement="_")
+        file.paths <- apply(as.matrix(fnames), 1, function(f) paste0(write, "year_", start.year-1, "/results/", f, ".csv"))
+        for(i in 1:length(vars)){
+            print(vars[i])
+            data <- as.matrix(read.csv(file.paths[i]))
+            dims <- dim(data)
+            if(dims[2] > 2){
+                pop_dyn[[vars[i]]][1:dims[1],1:(dims[2]-1)] <- data[,2:ncol(data)]
+            }else{
+                pop_dyn[[vars[i]]][1:dims[1]] <- data[,2:ncol(data)]
+            }
+        }
 
+        # These handle the three special case matrics: annual.age0.devs, harvest_rate, and assessment_biomass
+        age0.dev.data <- read.csv(paste0(write, "year_", start.year-1, "/results/annual_age0_devs.csv"))
+        pop_dyn$annual.age0.devs[1:nrow(age0.dev.data)] <- age0.dev.data[,2]
+
+        harvest.rate.data <- read.csv(paste0(write, "year_", start.year-1, "/results/harvest.csv"))
+        control.rule[1:nrow(harvest.rate.data)] <- harvest.rate.data[,2]
+
+        ass.biomass.data <- read.csv(paste0(write, "year_", start.year-1, "/results/assessment_biomass.csv"))
+        ass.biomass[1:nrow(ass.biomass.data), 2:ncol(ass.biomass)] <- ass.biomass.data[,3:ncol(ass.biomass.data)]
+
+    }
+
+    for(y in start.year:nyr.sim){  
+      print(y)
       model.dir <- create.model.dir(write, y)
       setwd(model.dir)
 
