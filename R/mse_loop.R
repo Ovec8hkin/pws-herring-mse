@@ -63,8 +63,7 @@ initialize.popdyn.variables <- function(nyr.sim){
   
 }
 
-#set.initial.conditions <- function(pop_dyn, ssb, waa, ssb.nya.conversion=0.03, sim.seed=NA){
-set.initial.conditions <- function(dir, pop_dyn){ 
+set.initial.conditions <- function(dir, pop_dyn, mat, waa){ 
   # true.pop.size <- ssb*ssb.nya.conversion
   # nya.probs <- c(0.206, 0.177, 0.172, 0.136, 0.104, 0.0779, 0.055, 0.030, 0.017, 0.025)
   # if(!is.na(sim.seed)){
@@ -74,10 +73,10 @@ set.initial.conditions <- function(dir, pop_dyn){
 
   year.0.est <- get.assessment.estimates(dir, 0)
 
-  prop.age.structure <- as.numeric(year.0.est$est.nya[3, ]/sum(year.0.est$est.nya[3, ]))
+  #prop.age.structure <- as.numeric(year.0.est$est.nya[3, ]/sum(year.0.est$est.nya[3, ]))
 
   pop_dyn$true.nya[1, ] <- as.numeric(year.0.est$est.nya[3, ]) # Should these be rounded to integers?
-  pop_dyn$prefish.spawn.biomass[1, ] <- as.numeric(year.0.est$est.ssb[3, ])*prop.age.structure
+  pop_dyn$prefish.spawn.biomass[1, ] <- mat*as.numeric(year.0.est$est.nya[3, ])*waa
   
   return(pop_dyn)
 }
@@ -148,11 +147,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
     # Can be arbitary if non-operational. Can use median naa and waa from past n years
     # to set starting values
     true.waa <- calculate.waa(dat.files)
-    pop_dyn <- initialize.popdyn.variables(nyr.sim)
-
-    # Initialize projection estimates (e.g. from forecast model)
-    pop_dyn <- set.initial.conditions(write, pop_dyn)
-
+    
     # This can be back-calculated from CAA = exploitation * selectivity * naa
     # Probably will need to be fine-tuned later.
     # Can assume fully-selected fishery by setting selectivity=1
@@ -166,14 +161,22 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
     params$selectivity      <- fish.selectivity
     params$catch.sd         <- 0.1
 
-    age0.error <- 0
-    if(!is.na(sim.seed)){
-      set.seed(sim.seed)
-      age0.error <- rnorm(nyr.sim, 0, 0.5)
-    }
-    # Generate a new value for annual_age0dev. This will get replaced by a call to BASA
-    # eventually, but this works for now.
-    pop_dyn$annual.age0.devs <- median(params$annual_age0devs) + age0.error
+    maturity <- calc.maturity(params$mat_par_1, params$mat_par_2)
+
+    # Initialize projection estimates (e.g. from forecast model)
+    pop_dyn <- initialize.popdyn.variables(nyr.sim)
+    pop_dyn <- set.initial.conditions(write, pop_dyn, maturity, params$waa)
+
+    # Generate new age-0 recruitment deviates. Devs are pulled from a normal
+    # distribution N(0, 1.2). See docs/recrtuiment-modeling.Rmd for more info
+    # on how this distribution was selected.
+    # age0.error <- 0
+    # if(!is.na(sim.seed)){
+    #   set.seed(sim.seed)
+    #   age0.error <- rnorm(nyr.sim, 0, 0.5)
+    # }
+    # pop_dyn$annual.age0.devs <- median(params$annual_age0devs) + age0.error
+    pop_dyn$annual.age0.devs <- rnorm(nyr.sim, mean=0, sd=1.20)
 
     # Start loop
     control.rule <- rep(0, nyr.sim)
