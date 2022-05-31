@@ -216,16 +216,22 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
       model.dir <- create.model.dir(write, y)
       setwd(model.dir)
 
-      # Perform management procedure
-      ass.est <- get.assessment.estimates(write, y-1)
-      ass.biomass[y, 2:6] <- t(ass.est$est.ssb)
-
-      hcr.name <- hcr.options$type
-      tar_hr <- match.fun(hcr.name)(as.numeric(ass.est$est.ssb[3, ]), as.numeric(ass.est$est.nya[3, ]), hcr.options)
-      control.rule[y] <- tar_hr
-
+      # If we want to run the full assessment, then use the assessment estimates in the HCR
+      # calculation. Otherwise, use the deterministic biomass. This is useful for debugging
+      # the operating model quickly (no need to run the whole assessment).
       true.ssb <- sum(pop_dyn$prefish.spawn.biomass[y, ])
       true.nya <- pop_dyn$true.nya[y, ]
+      hcr.name <- hcr.options$type
+      if(assessment){
+          ass.est <- get.assessment.estimates(write, y-1)
+          ass.biomass[y, 2:6] <- t(ass.est$est.ssb)
+          tar_hr <- match.fun(hcr.name)(as.numeric(ass.est$est.ssb[3, ]), as.numeric(ass.est$est.nya[3, ]), hcr.options) 
+      }else{
+          tar_hr <- match.fun(hcr.name)(true.ssb, true.nya, hcr.options)
+      }
+      control.rule[y] <- tar_hr
+
+      
 
       # Execute fishery following management recommendation
       catch.at.age <- fun_fish(tar_hr, true.ssb, true.nya, params$waa, params$selectivity, params$catch.sd)
