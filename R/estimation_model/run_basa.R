@@ -44,7 +44,7 @@ OS <- "MAC"
 
 # BE SURE TO CHECK YOUR DIRECTORY
 
-run.basa.adnuts <- function(model.dir, seed, n.iter=350, n.warmup=100, max.duration=1000){
+run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.duration=5){
 
     setwd(model.dir)
 
@@ -153,7 +153,8 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=350, n.warmup=100, max.durat
     }
 
     start.time <- Sys.time()
-    fit.1 <- sample_nuts(model='./PWS_ASA',
+    fit.1 <- tryCatch({
+        sample_nuts(model='./PWS_ASA',
                          path=model.dir,
                          init=inits, seeds=seeds, chains=reps, cores=reps,
                          iter=n.iter,
@@ -161,9 +162,28 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=350, n.warmup=100, max.durat
                          duration=max.duration,
                          mceval=TRUE,
                          control=list(adapt_delta=0.9, metric="mle")
-                    )
+        ) 
+    }, error = function(e){
+        print("sample_nuts failed with the following error:")
+        print(e)
+        return(NULL)
+    })
+    # fit.1 <- sample_nuts(model='./PWS_ASA',
+    #                      path=model.dir,
+    #                      init=inits, seeds=seeds, chains=reps, cores=reps,
+    #                      iter=n.iter,
+    #                      warmup=n.warmup,
+    #                      duration=max.duration,
+    #                      mceval=TRUE,
+    #                      control=list(adapt_delta=0.9, metric="mle")
+    #                 )
     end.time <- Sys.time()
     print(end.time - start.time)
+
+    if(is.null(fit.1)){
+      print("fit.1 failed, exiting with NULL")
+      return(NULL)
+    }
 
     # Extracts NUTS stats (energy, leapfrog transitions,etc)
     mon <- monitor(fit.1$samples, warmup=fit.1$warmup, print=FALSE)
@@ -204,4 +224,5 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=350, n.warmup=100, max.durat
 
 }
 
+#run.basa.adnuts(here::here("results/base/sim_513/year_7/model/"), seed=513, n.iter=2000, n.warmup=700)
 

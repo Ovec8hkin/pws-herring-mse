@@ -14,9 +14,9 @@ source(file=paste0(here::here("R/estimation_model/"), "run_basa.R"))
 files.sources = list.files(here::here("R/operating_model/control_rules"), full.names=TRUE)
 sapply(files.sources, source)
 
-#source(file=paste0(here::here("R/utils/"),            "fun_data_reader.R"))
+#source(file=paste0(here::here("R/utils/"), "fun_data_reader.R"))
 
-nyr.sim <- 5
+nyr.sim <- 10
 nage <- 10
 
 listN <- function(...){
@@ -250,39 +250,68 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
 
       # Run BASA
       #  - allow option to skip years of assessment
-      convergence.diags <- run.basa.adnuts(model.dir, sim.seed)
-      if(convergence.diags$divergences >= 0.005 || convergence.diags$converged == FALSE){
-          print("Convergence failed")
-          return("Convergence failed")
+      if(assessment){
+          # max.iters <- 5
+          iters <- 1
+          # convergence.diags <- NULL
+          # while(is.null(convergence.diags) && iters <= max.iters){
+          #     convergence.diags <- run.basa.adnuts(model.dir, sim.seed)   # This is the important calculation
+          #     iters <- iters+1
+          # }
+
+          # This is a wrapper around the run.basa function that reruns the assessment procedured
+          # if NUTS mysteriously fails or times out. This merely helps with making sure that the
+          # simulations run to completion without random NUTS errors interrupting.
+          repeat{
+              convergence.diags <- run.basa.adnuts(model.dir, sim.seed)   # This is the important calculation
+              iters <- iters+1
+              print(is.null(convergence.diags))
+              if(!is.null(convergence.diags) || iters > 5){
+                break;
+              }
+          }
+
+          if(iters > 5){
+            stop("Max Iterations exceeded")
+          }
       }
+      # if(convergence.diags$divergences >= 0.005 || convergence.diags$converged == FALSE){
+      #     break;
+      # }
 
       dat.files <- read.data.files(model.dir)
       params$female.spawners  <- tail(dat.files$PWS_ASA.dat$perc.female, 1)
-      
-    }
 
-    if(!is.na(write)){
-        setwd(write)
-        results.dir <- paste0(write, "/", "year_", y, "/results/")
-        if(dir.exists(results.dir)){
-          unlink(results.dir, recursive = TRUE)
-        }
-        dir.create(results.dir, recursive = TRUE)
-        setwd(results.dir)
+      # Write results so we can restart a failed run from specified year
+      if(!is.na(write)){
+          setwd(write)
+          results.dir <- paste0(write, "/", "year_", y, "/results/")
+          if(dir.exists(results.dir)){
+            unlink(results.dir, recursive = TRUE)
+          }
+          dir.create(results.dir, recursive = TRUE)
+          setwd(results.dir)
 
-        files <- apply(as.matrix(names(pop_dyn)), 1, str_replace_all, pattern="[.]", replacement="_")
-        lapply(seq_along(pop_dyn), function(i){
-          write.csv(pop_dyn[[i]], paste0(files[i], ".csv"), row.names = TRUE)
-        })
-        write.csv(control.rule, "harvest.csv")
-        write.csv(ass.biomass, "assessment_biomass.csv")
+          files <- apply(as.matrix(names(pop_dyn)), 1, str_replace_all, pattern="[.]", replacement="_")
+          lapply(seq_along(pop_dyn), function(i){
+            write.csv(pop_dyn[[i]], paste0(files[i], ".csv"), row.names = TRUE)
+          })
+          write.csv(control.rule, "harvest.csv")
+          write.csv(ass.biomass, "assessment_biomass.csv")
+
+      }
 
     }
 
     return(list(pop.dyn=pop_dyn, harvest.rate=control.rule, obs=obs_w_err))
   }
 
-  cr <- list(type="hcr.hockey.stick", lower.threshold=10000, upper.threshold=30000, min.harvest = 0.0, max.harvest=0.20)
-  sim.dir <- paste0(here::here("results"), "/", "lower.b0", "/sim_", "519", "/")
-  sim.out.f.00 <- run.simulation(cr, nyr.sim=15, sim.seed=519, write=sim.dir)
+#   cr <- list(type="hcr.hockey.stick", lower.threshold=20000, upper.threshold=40000, min.harvest = 0.0, max.harvest=0.30)
+#   sim.dir <- paste0(here::here("results"), "/", "test", "/sim_", "513", "/")
+#   sim.out.f.00 <- run.simulation(cr, nyr.sim=15, sim.seed=513, write=sim.dir, assessment = FALSE)
+#   pop_dyn <- sim.out.f.00$pop.dyn
 
+#   prefish.spawn.biomass <- apply(pop_dyn$prefish.spawn.biomass, 1, sum)
+#   data <- data.frame(year=1:16, ssb=prefish.spawn.biomass)
+# ggplot(data)+
+#   geom_line(aes(x=year, y=ssb))
