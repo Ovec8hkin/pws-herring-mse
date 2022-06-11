@@ -132,18 +132,22 @@ accumulate.assessment.posteriors <- function(nyr.sim, total.sims, seeds, trial, 
 
     f1 <- paste0(here::here("results"), "/", trial, "/sim_", seeds[1], "/year_1/model/mcmc_out/", fname)
     n.samps <- nrow(read.csv(f1, header=FALSE))
-    print(n.samps)
+    #print(n.samps)
     data.matrices <- vector("list", length(fname))
     for(i in 1:length(fname)){
         data.matrices[[i]] <- array(NA, dim=c(n.samps, nyr.sim, total.sims))
     }
 
-    for(s in 1:length(seeds)){
-        f <- paste0(here::here("results"), "/", trial, "/sim_", seeds[s], "/year_", nyr.sim, "/model/mcmc_out/", fname)
-        print(f)
-        data <- read.csv(f, header=FALSE)
-        data.matrices[[i]][,,s] <- as.matrix(data[,(ncol(data)-nyr.sim+1):ncol(data)])
+    for(i in 1:nyr.sim){
+        for(s in 1:length(seeds)){
+            print(i)
+            f <- paste0(here::here("results"), "/", trial, "/sim_", seeds[s], "/year_", i-1, "/model/mcmc_out/", fname)
+            #print(f)
+            data <- read.csv(f, header=FALSE)
+            data.matrices[[1]][,i,s] <- as.matrix(data[(nrow(data)-n.samps+1):nrow(data), ncol(data)])
+        } 
     }
+    
     return(data.matrices)
 }
 

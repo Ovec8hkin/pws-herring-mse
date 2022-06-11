@@ -15,24 +15,24 @@ clean.results.dir <- function(){
     }
 }
 
-clean.results.dir()
+#clean.results.dir()
 
-nyr.sim <- 15
-total.sims <- 6
+nyr.sim <- 10
+total.sims <- 2
 
 #seeds <- rep(0, total.sims)
-base.seed <- 512
-seeds <- base.seed + 1:total.sims
+set.seed(1120)
+seeds <- sample(1:1e4, size=total.sims)
 control.rules <- list(
     base            = list(type="hcr.hockey.stick", lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
     high.harvest    = list(type="hcr.hockey.stick", lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.30),
     low.harvest     = list(type="hcr.hockey.stick", lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.15),
-    lower.b0        = list(type="hcr.hockey.stick", lower.threshold=10000, upper.threshold=30000, min.harvest = 0.0, max.harvest=0.20),
-    low.biomass     = list(type="hcr.hockey.stick", lower.threshold=10000, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
-    higher.b0       = list(type="hcr.hockey.stick", lower.threshold=30000, upper.threshold=50000, min.harvest = 0.0, max.harvest=0.20),
-    high.biomass    = list(type="hcr.hockey.stick", lower.threshold=30000, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
+    # lower.b0        = list(type="hcr.hockey.stick", lower.threshold=10000, upper.threshold=30000, min.harvest = 0.0, max.harvest=0.20),
+    # low.biomass     = list(type="hcr.hockey.stick", lower.threshold=10000, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
+    # higher.b0       = list(type="hcr.hockey.stick", lower.threshold=30000, upper.threshold=50000, min.harvest = 0.0, max.harvest=0.20),
+    # high.biomass    = list(type="hcr.hockey.stick", lower.threshold=30000, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
     constant.f.00   = list(type="hcr.constant.f",   f.rate=0.0)
-    #constant.escape = list(type="hcr.constant.escapement", threshold=30000, proportion=1.0)
+    ##constant.escape = list(type="hcr.constant.escapement", threshold=30000, proportion=1.0)
 )
 hcr.names <- names(control.rules)
 
@@ -50,8 +50,9 @@ for(n in 1:length(hcr.names)){
     # }
     for(s in 1:total.sims){
         sim.dir <- paste0(here::here("results"), "/", hcr.names[n], "/sim_", seeds[s], "/")
+        # TODO: include some code to not repeat runs when HCR and sim seed are repeated
         if(!dir.exists(sim.dir)){ dir.create(sim.dir, recursive = TRUE) }
-        run.simulation(control.rules[[n]], nyr.sim, sim.seed=seeds[s], write=sim.dir)
+        run.simulation(control.rules[[n]], nyr.sim, sim.seed=seeds[s], write=sim.dir, start.year=9)
     }
     
     #return()
@@ -84,7 +85,7 @@ get.harvest.results.all.trials <- function(nyr.sim, total.sims, seeds, trial){
 }
 
 harvest.rate <- get.harvest.results.all.trials(nyr.sim, total.sims, seeds, "")
-
+harvest.rate
 get.biomass.sim.results <- function(nyr.sim, total.sims, seeds, trial){
 
     prefish.spawn.biomass <- accumulate.results.data(nyr.sim, total.sims, seeds, trial, c("prefish_spawn_biomass.csv"), byage=TRUE)
@@ -98,7 +99,7 @@ get.biomass.sim.results <- function(nyr.sim, total.sims, seeds, trial){
 
     data <- cbind(prefish.biomass.quants, assessment.biomass.quants)
 
-    sim.results <- data.frame(year=1:nyr.sim, rep(trial, nyr.sim), rep(c("det", "ass"), each=nyr.sim), t(data), thresh.prob=prob.below.threshold)
+    sim.results <- data.frame(year=2021:(2021+nyr.sim-1), rep(trial, nyr.sim), rep(c("det", "ass"), each=nyr.sim), t(data), thresh.prob=prob.below.threshold)
     names(sim.results) <- c("Year", "Trial", "Type", "Biomass2.5", "Biomass25", "Biomass50", "Biomass75", "Biomass97.5", "thresh.prob")
 
     return(sim.results)
@@ -136,7 +137,7 @@ ggplot(sim.results)+
     scale_color_manual(values=c("red", "blue"))+
     scale_y_continuous(
         name = "Spawning Biomass (metric tons)",
-        limits = c(0, 80000),
+        limits = c(0, 120000),
         sec.axis = sec_axis(trans=~.*1/80000, name="Probability below 20k metric tons")
     )+xlab("Year")+ggtitle("Spawning Biomass Predictions")+facet_wrap(vars(Trial))
 
@@ -144,8 +145,8 @@ ssb.traj.plot <- ggplot(sim.results)+
                     #geom_ribbon(aes(x=Year, ymin=Biomass25, ymax=Biomass75, fill=Trial), alpha=0.25)+
                     geom_point(aes(x=Year, y=Biomass50, color=Trial, linetype=Type), size=3)+
                     geom_line(aes(x=Year, y=Biomass50, color=Trial, linetype=Type), size=1.5)+
-                    #geom_ribbon(aes(x=Year, ymin=Biomass2.5, ymax=Biomass97.5, fill=Trial), alpha=0.125)
-                    ylim(0, 60000)+
+                    #geom_ribbon(aes(x=Year, ymin=Biomass2.5, ymax=Biomass97.5, fill=Trial), alpha=0.125)+
+                    ylim(0, 75000)+
                     scale_color_manual(values=c("black", "red", "blue", "green", "purple", "orange", "darkslategray3", "coral4"))+
                     scale_fill_manual(values=c("black", "red", "blue", "green", "purple", "orange", "darkslategray3", "coral4"))+
                     labs(title="SSB Trajectories Under Candidate HCRs", 
