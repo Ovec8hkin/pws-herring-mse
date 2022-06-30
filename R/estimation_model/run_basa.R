@@ -135,11 +135,17 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
     # Create reps x starting par vectors, and run NUTS
     setwd(model.dir)
     reps <- 4
-    #set.seed(8558)
     set.seed(1120)
     seeds <- sample(1:1e4, size=reps)
-    #system("admb -s PWS_ASA")
-    system("./PWS_ASA -pinwrite -hbf 1", ignore.stdout = TRUE)
+
+    # Switch this out for a call to system2 and check whether the solution
+    # is positive definite. Non positive definite erros result in NUTS
+    # failures that are non-recoverable.
+    res <- system2("./PWS_ASA", args=c("-pinwrite",  "-hbf",  "1"), stdout=TRUE)
+    if("positive definite" %in% res[length(res)]){
+        print("Hessian was not positive definite")
+        return(NULL)
+    }
 
     inits <- init.admb.params(reps)
 
