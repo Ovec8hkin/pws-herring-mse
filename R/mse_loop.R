@@ -179,6 +179,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
     #   age0.error <- rnorm(nyr.sim, 0, 0.5)
     # }
     # pop_dyn$annual.age0.devs <- median(params$annual_age0devs) + age0.error
+    set.seed(sim.seed)
     pop_dyn$annual.age0.devs <- rnorm(nyr.sim, mean=0, sd=1.20)
 
     # Start loop
