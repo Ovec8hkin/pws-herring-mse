@@ -253,6 +253,29 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
       # Generate observations with error
       obs_w_err <- fun_obsm(pop_dyn, dat.files$PWS_ASA.dat$waa, dat.files$PWS_ASA.dat$perc.female, y)
 
+      wd <- getwd()
+      # Write results so we can restart a failed run from specified year
+      if(!is.na(write)){
+          setwd(write)
+          results.dir <- paste0(write, "/", "year_", y, "/results/")
+          if(dir.exists(results.dir)){
+            unlink(results.dir, recursive = TRUE)
+          }
+          dir.create(results.dir, recursive = TRUE)
+          setwd(results.dir)
+
+          files <- apply(as.matrix(names(pop_dyn)), 1, str_replace_all, pattern="[.]", replacement="_")
+          lapply(seq_along(pop_dyn), function(i){
+            write.csv(pop_dyn[[i]], paste0(files[i], ".csv"), row.names = TRUE)
+          })
+          write.csv(control.rule, "harvest.csv")
+          write.csv(ass.biomass, "assessment_biomass.csv")
+
+      }
+      setwd(wd)
+
+
+
       # Write all new data to .dat file (and modify covariate and agecomp_samp_sizes.txt files)
       fun_write_dat(dat.files, catch.at.age, obs_w_err, params, list(seine=seine.comp.obs.ss, spawn=spawn.comp.obs.ss), y)
 
@@ -289,25 +312,6 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
 
       dat.files <- read.data.files(model.dir)
       params$female.spawners  <- tail(dat.files$PWS_ASA.dat$perc.female, 1)
-
-      # Write results so we can restart a failed run from specified year
-      if(!is.na(write)){
-          setwd(write)
-          results.dir <- paste0(write, "/", "year_", y, "/results/")
-          if(dir.exists(results.dir)){
-            unlink(results.dir, recursive = TRUE)
-          }
-          dir.create(results.dir, recursive = TRUE)
-          setwd(results.dir)
-
-          files <- apply(as.matrix(names(pop_dyn)), 1, str_replace_all, pattern="[.]", replacement="_")
-          lapply(seq_along(pop_dyn), function(i){
-            write.csv(pop_dyn[[i]], paste0(files[i], ".csv"), row.names = TRUE)
-          })
-          write.csv(control.rule, "harvest.csv")
-          write.csv(ass.biomass, "assessment_biomass.csv")
-
-      }
 
     }
 
