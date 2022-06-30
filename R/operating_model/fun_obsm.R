@@ -28,8 +28,10 @@ fun_obsm <- function(pop_dyn, waa, perc.female, y){
   mdm <- mdm.predicted[y]*exp(rnorm(1, 0, mdm.sd)-mdm.sd^2/2)
   pwssc.hydro <- PWSSC.hydro.predicted[y]*exp(rnorm(1, 0, pwssc.hydro.sd)-pwssc.hydro.sd^2/2)
   
-  spawn.age.comp <- gtools::rdirichlet(1, 39*spawn.age.comp.predicted[y, ])
-  
+  #spawn.age.comp <- gtools::rdirichlet(1, 39*spawn.age.comp.predicted[y, ])
+  spawn.age.comp <- rmultinom(1, 1500, spawn.age.comp.predicted[y, ]/sum(spawn.age.comp.predicted[y, ]))
+  spawn.age.comp <- t(spawn.age.comp/sum(spawn.age.comp))
+
   if(any(seine.age.comp.predicted==-9)){
     seine.age.comp <- rep(-9, ncol(seine.age.comp.predicted))
   }else{
