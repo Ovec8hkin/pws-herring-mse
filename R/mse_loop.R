@@ -124,7 +124,7 @@ create.model.dir <- function(directory, year){
     return(paste0(model.dir, "/"))
 }
 
-run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.year=1, assessment=TRUE){
+run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.year=1, stop.year=NA, assessment=TRUE){
     print(write)
     if(is.na(write)){
       write <- paste0(here::here("results"), "/test")
@@ -137,7 +137,8 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
     file.symlink(basa.root.dir, paste0(write, "/year_0/"))
 
     # Read in data files JUST ONCE, store then write within code
-    dat.files <- read.data.files(model.0.dir)
+    # dat.files <- read.data.files(model.0.dir)
+    dat.files <- read.data.files(paste0(write, "/year_", start.year-1, "/model/"))
 
     # These are the observed (not effective) sample sizes 
     seine.comp.obs.ss <- 500
@@ -216,8 +217,13 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
 
     }
 
-    for(y in start.year:nyr.sim){  
-      print(y)
+    if(is.na(stop.year)){
+      stop.year <- nyr.sim
+    }
+
+    for(y in start.year:stop.year){  
+      #print(y)
+      print(paste0(y, "/", stop.year))
       model.dir <- create.model.dir(write, y)
       setwd(model.dir)
 
