@@ -153,6 +153,8 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
     # Can assume fully-selected fishery by setting selectivity=1
     # Would need to add some error to the CAA.
     fish.selectivity <- matrix(1, nrow=4, ncol=10)
+    fish.selectivity[, 1:3] <- 0 # Selectivity 0 for fish age 0-2
+
 
     params <- read.par.file("~/Desktop/Projects/basa/model/PWS_ASA.par")
     params$female.spawners  <- tail(dat.files$PWS_ASA.dat$perc.female, 1)

@@ -39,13 +39,13 @@ fun_fish <- function(target.harvest.rule, ssb.true, naa.true, weight.at.age, fis
     fishery.catch.at.age <-  matrix(nrow=n.fisheries, ncol=nage)
     for(i in 1:n.fisheries){
         #fishery.eff.exploit.age.comp[i, ] <- alloc[i]*yield*fishery.selectivity[i, ]/fishery.exploitable.biomass[i, ]
-        fishery.catch.at.age[i, ] <- alloc[i]*naa.true*target.harvest.rule
+        fishery.catch.at.age[i, ] <- alloc[i]*naa.true*fishery.selectivity[i,]*target.harvest.rule
+        #fishery.catch.at.age[i, ] <- alloc[i]*naa.true*target.harvest.rule
     }
     
     # Now add implementation error (take random normal deviates for each age-specific catch)
     #catch.at.age.error <- matrix(rnorm(n.fisheries*nage, mean=0, sd=catch.sd), nrow=n.fisheries, ncol=nage)
     #fishery.catch.at.age <- fishery.catch.at.age + fishery.catch.at.age*catch.at.age.error
-
     fishery.catch.at.age[is.nan(fishery.catch.at.age) | is.infinite(fishery.catch.at.age)] <- 0
 
     return(fishery.catch.at.age)
