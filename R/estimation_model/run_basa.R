@@ -167,6 +167,7 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
                          warmup=n.warmup,
                          duration=max.duration,
                          mceval=TRUE,
+                         verbose=FALSE,
                          control=list(adapt_delta=0.9, metric="mle")
         ) 
     }, error = function(e){
