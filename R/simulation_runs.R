@@ -15,6 +15,11 @@ clean.results.dir <- function(){
     }
 }
 
+unregister_dopar <- function() {
+  env <- foreach:::.foreachGlobals
+  rm(list=ls(name=env), pos=env)
+}
+
 #clean.results.dir()
 
 nyr.sim <- 10
@@ -63,6 +68,7 @@ for(n in 1:length(hcr.names)){
     #return()
     toc()
 }
+unregister_dopar()
 # stopCluster(cl)
 
 # Accumulate catch data across all simulations for each of the four 
