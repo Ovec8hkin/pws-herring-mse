@@ -294,17 +294,39 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
           # This is a wrapper around the run.basa function that reruns the assessment procedured
           # if NUTS mysteriously fails or times out. This merely helps with making sure that the
           # simulations run to completion without random NUTS errors interrupting.
+          desired.samples <- 5200
+          max.duration <- 20
+
           repeat{
-              convergence.diags <- run.basa.adnuts(model.dir, sim.seed)   # This is the important calculation
+              if(iters > 1){
+                Sys.sleep(5)
+              }
+
+              print(paste("Trying with max duration of", max.duration, "minutes."))
+              convergence.diags <- run.basa.adnuts(model.dir, sim.seed, max.duration = max.duration)   # This is the important calculation
+
+              n.samples <- tryCatch({
+                  nrow(read.csv("mcmc_out/PFRBiomass.csv", header=FALSE))
+              }, error=function(e){
+                  print("Insufficient samples recorded, retrying.")
+                  0
+              })
+
               iters <- iters+1
-              print(is.null(convergence.diags))
-              if(!is.null(convergence.diags) || iters > 5){
+              if((!is.null(convergence.diags) && n.samples == desired.samples) || iters > 3){
                 break;
               }
+              print(wd)
+              print(paste0(y, "/", stop.year))
+
+              if(n.samples < desired.samples){
+                  max.duration <- max(round(max.duration/(n.samples/desired.samples), 0)+1, 30)
+              }
+
           }
 
-          if(iters > 5){
-            stop("Max Iterations exceeded")
+          if(iters > 3){
+            return(list(success=FALSE, message="Maximum Iterations Reached"))
           }
       }
       # if(convergence.diags$divergences >= 0.005 || convergence.diags$converged == FALSE){
