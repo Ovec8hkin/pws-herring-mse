@@ -26,11 +26,12 @@ hcr.hockey.stick <- function(ssb.projected, naa.projected,
 
     # Projected age composition
     age.comp <- naa.projected/sum(naa.projected)
+    age.comp.threshold <- 1.0 # 0.5
 
     target.hr <- 0
-    if(ssb.projected >= upper.biomass.thresh & sum(age.comp[4:5]) <= 0.5){
+    if(ssb.projected >= upper.biomass.thresh & sum(age.comp[4:5]) <= age.comp.threshold){
         target.hr <- max.hr
-    }else if(ssb.projected < upper.biomass.thresh & ssb.projected >= lower.biomass.thresh & sum(age.comp[4:5]) <= 0.5){
+    }else if(ssb.projected < upper.biomass.thresh & ssb.projected >= lower.biomass.thresh & sum(age.comp[4:5]) <= age.comp.threshold){
         target.hr <- (ssb.projected-lower.biomass.thresh)*max.hr/(upper.biomass.thresh-lower.biomass.thresh)
     }else{
         target.hr <- 0
