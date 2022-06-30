@@ -52,7 +52,12 @@ for(n in 1:length(hcr.names)){
         sim.dir <- paste0(here::here("results"), "/", hcr.names[n], "/sim_", seeds[s], "/")
         # TODO: include some code to not repeat runs when HCR and sim seed are repeated
         if(!dir.exists(sim.dir)){ dir.create(sim.dir, recursive = TRUE) }
-        run.simulation(control.rules[[n]], nyr.sim, sim.seed=seeds[s], write=sim.dir, start.year=9)
+        res <- run.simulation(control.rules[[n]], nyr.sim, sim.seed=seeds[s], 
+                              write=sim.dir, start.year=1)
+        if(!res$success){
+            run.simulation(control.rules[[n]], nyr.sim, sim.seed=seeds[s], 
+                           write=sim.dir, start.year=1)
+        }
     }
     
     #return()

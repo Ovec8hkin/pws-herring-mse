@@ -338,7 +338,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
 
     }
 
-    return(list(pop.dyn=pop_dyn, harvest.rate=control.rule, obs=obs_w_err))
+    return(list(pop.dyn=pop_dyn, harvest.rate=control.rule, obs=obs_w_err, success=TRUE))
   }
 
 #   cr <- list(type="hcr.hockey.stick", lower.threshold=20000, upper.threshold=40000, min.harvest = 0.0, max.harvest=0.30)
