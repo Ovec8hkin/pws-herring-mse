@@ -87,8 +87,12 @@ get.harvest.results.all.trials <- function(nyr.sim, total.sims, seeds, trial){
 
     trials <- list.files(here::here("results"))
     for(t in trials){
-        trial.results <- get.harvest.rate.sim.results(nyr.sim, total.sims, seeds, t)
-        sim.results[,t] <- trial.results
+       # trial.results <- get.harvest.rate.sim.results(nyr.sim, total.sims, seeds, t)
+        sim.results[,t] <- tryCatch({
+            get.harvest.rate.sim.results(nyr.sim, total.sims, seeds, t)
+        }, error = function(e){
+            rep(NA, nyr.sim)   
+        })
     }
 
     return(sim.results)
@@ -121,8 +125,14 @@ get.biomass.results.all.trials <- function(nyr.sim, total.sims, seeds){
     sim.results <- data.frame()
     for(tr in trials){
         print(tr)
-        trial.results <- get.biomass.sim.results(nyr.sim, total.sims, seeds, tr)
-        sim.results <- rbind(sim.results, trial.results)
+        # trial.results <- get.biomass.sim.results(nyr.sim, total.sims, seeds, tr)
+        # sim.results <- rbind(sim.results, trial.results)
+        sim.results <- tryCatch({
+            trial.results <- get.biomass.sim.results(nyr.sim, total.sims, seeds, tr)
+            rbind(sim.results, trial.results)
+        }, error = function(e){
+            sim.results
+        })
     }
     return(sim.results)
 }
