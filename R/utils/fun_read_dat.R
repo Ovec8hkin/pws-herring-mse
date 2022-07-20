@@ -102,6 +102,52 @@ read.par.file <- function(filename){
     return(par.vals)
 }
 
+read.survey.estimates <- function(model.dir){
+
+    nage=10
+
+    fnames <- list(
+        mdm             = paste0(model.dir, "/MDM.csv"),
+        pwssc.hydro     = paste0(model.dir, "/HYD_PWSSC.csv"),
+        adfg.hydro      = paste0(model.dir, "/HYD_ADFG.csv"),
+        spawn.age.comp  = paste0(model.dir, "/SpAC.csv"),
+        seine.age.comp  = paste0(model.dir, "/SeAC.csv"),
+        egg             = paste0(model.dir, "/EGG.csv"),
+        juv.schools     = paste0(model.dir, "/juv_schools.csv")
+    )
+
+    spac.data <- read.csv(fnames$spawn.age.comp, header=FALSE)
+    spac.data <- apply(spac.data, 2, median)
+    spac.data <- matrix(spac.data, ncol=nage, byrow=TRUE)
+
+    seac.data <- read.csv(fnames$seine.age.comp, header=FALSE)
+    seac.data <- apply(seac.data, 2, median)
+    seac.data <- matrix(seac.data, ncol=nage, byrow=TRUE)
+
+    mdm.data <- read.csv(fnames$mdm, header=FALSE)
+    mdm.data <- apply(mdm.data, 2, median)
+    mdm.data <- as.vector(mdm.data)
+
+    pwssc.hydro.data <- read.csv(fnames$pwssc.hydro, header=FALSE)
+    pwssc.hydro.data <- apply(pwssc.hydro.data, 2, median)
+    pwssc.hydro.data <- as.vector(pwssc.hydro.data)
+
+    adfg.hydro.data <- read.csv(fnames$adfg.hydro, header=FALSE)
+    adfg.hydro.data <- apply(adfg.hydro.data, 2, median)
+    adfg.hydro.data <- as.vector(adfg.hydro.data)
+
+    egg.data <- read.csv(fnames$egg, header=FALSE)
+    egg.data <- apply(egg.data, 2, median)
+    egg.data <- as.vector(egg.data)
+    egg.data[egg.data == 0] <- -9
+
+    juv.schools.data <- read.csv(fnames$juv.schools, header=FALSE)
+    juv.schools.data <- apply(juv.schools.data, 2, median)
+    juv.schools.data <- as.vector(juv.schools.data)
+
+    return(listN(mdm.data, egg.data, pwssc.hydro.data, adfg.hydro.data, juv.schools.data, spac.data, seac.data))
+}
+
 accumulate.results.data <- function(nyr.sim, total.sims, seeds, trial, fnames, byage=FALSE, ncols=1){
 
     if(length(byage) == 1){

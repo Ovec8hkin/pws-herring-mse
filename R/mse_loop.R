@@ -10,6 +10,7 @@ source(file=paste0(here::here("R/operating_model/"),  "fun_operm.R"))
 source(file=paste0(here::here("R/operating_model/"),  "fun_obsm.R"))
 source(file=paste0(here::here("R/utils/"),            "fun_write_dat.R"))
 source(file=paste0(here::here("R/estimation_model/"), "run_basa.R"))
+source(file=paste0(here::here("R/utils/",             "hindcast.R")))
 
 files.sources = list.files(here::here("R/operating_model/control_rules"), full.names=TRUE)
 sapply(files.sources, source)
@@ -41,22 +42,29 @@ initialize.popdyn.variables <- function(nyr.sim){
   foodbait.catch          <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
   n.spawners              <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
   spawn.biomass.age.comp  <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
-  true.nya                <- matrix(0, nyr.sim+1, nage, dimnames=list(c(rownames, nyr.sim+1), colnames))
-  spawn.age.comp          <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
-  seine.age.comp          <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
-
   spawn.biomass           <- rep(0, nyr.sim)
-  mdm                     <- rep(0, nyr.sim)
-  PWSSC.hydro             <- rep(0, nyr.sim)
   seine.biomass           <- rep(0, nyr.sim)
-  egg                     <- rep(0, nyr.sim)
-  ADFG.hydro              <- rep(0, nyr.sim)
+  true.nya                <- matrix(0, nyr.sim+1, nage, dimnames=list(c(rownames, nyr.sim+1), colnames))
+
+  survey.indices          <- list(
+      mdm                     <- rep(0, nyr.sim),
+      egg                     <- rep(0, nyr.sim),
+      PWSSC.hydro             <- rep(0, nyr.sim),
+      ADFG.hydro              <- rep(0, nyr.sim),
+      juv.schools             <- rep(0, nyr.sim),
+      spawn.age.comp          <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames)),
+      seine.age.comp          <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames)),
+      vhsv.antibody           <- matrix(0, nyr.sim, nage*2, dimnames = list(rownames, rep(colnames, each=2))),
+      ich.antibody            <- matrix(0, nyr.sim, nage*2, dimnames = list(rownames, rep(colnames, each=2)))  
+  )
+  names(survey.indices) <- c("mdm", "egg", "PWSSC.hydro", "ADFG.hydro", "juv.schools", "spawn.age.comp", "seine.age.comp", "vhsv.antibody", "ich.antibody")
+
   annual.age0.devs        <- rep(0, nyr.sim)
 
   pop_dyn <- listN(survival.summer, survival.winter, maturity, prefish.spawn.biomass, 
                 seine.catch, gillnet.catch, pound.catch, foodbait.catch,
-                n.spawners, spawn.biomass.age.comp, spawn.biomass, true.nya, 
-                mdm, PWSSC.hydro, spawn.age.comp, seine.age.comp, seine.biomass, egg, ADFG.hydro,
+                n.spawners, spawn.biomass.age.comp, true.nya, 
+                survey.indices,
                 annual.age0.devs)
 
   return(pop_dyn)
@@ -196,7 +204,6 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
         fnames <- apply(as.matrix(vars), 1, str_replace_all, pattern="[.]", replacement="_")
         file.paths <- apply(as.matrix(fnames), 1, function(f) paste0(write, "year_", start.year-1, "/results/", f, ".csv"))
         for(i in 1:length(vars)){
-            print(vars[i])
             data <- as.matrix(read.csv(file.paths[i]))
             dims <- dim(data)
             if(dims[2] > 2){
@@ -252,7 +259,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
       pop_dyn <- fun_operm(y, pop_dyn, catch.at.age, params, sim.seed)
 
       # Generate observations with error
-      obs_w_err <- fun_obsm(pop_dyn, dat.files$PWS_ASA.dat$waa, dat.files$PWS_ASA.dat$perc.female, y)
+      obs_w_err <- fun_obsm(pop_dyn$survey.indices, dat.files$PWS_ASA.dat$waa, dat.files$PWS_ASA.dat$fecundity, dat.files$PWS_ASA.dat$perc.female, 2.17, sample.sizes, y, sim.seed)
 
       wd <- getwd()
       # Write results so we can restart a failed run from specified year
