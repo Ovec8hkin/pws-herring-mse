@@ -6,10 +6,9 @@
 
 nage <- 10
 
-fun_operm <- function(year, pop.dyn, true.catch.at.age, pars, sim.seed=NA){
+fun_operm <- function(year, curr.nya, catch.at.age, pars, pop.dyn, sim.seed=NA, project=TRUE){
   
-    
-    curr.nya <- pop.dyn$true.nya[year, ]
+    #curr.nya <- pop.dyn$true.nya[year, ]
 
     # Calculate summer and winter survival
     survival <- calc.survival(pop.dyn$survival.summer[year-1, ], pop.dyn$survival.winter[year-1, ], pars$Z_0_8, pars$Z_9, sim.seed)
@@ -24,60 +23,39 @@ fun_operm <- function(year, pop.dyn, true.catch.at.age, pars, sim.seed=NA){
     prefish.spawn.biomass <- maturity * pars$waa * curr.nya
     
     # Re-assign true.catch.at.age to match variables as in BASA (EM)
-    catches <- calc.catches(true.catch.at.age, pars$pk)
-    
-    # Calculate post-fishery spawners (for milt survey)
-    n.spawners <- maturity*(curr.nya-catches$spring.total)
-    spawn.biomass.age.comp <- pars$waa*n.spawners
-    spawn.biomass <- sum(spawn.biomass.age.comp)
+    catches <- calc.catches(catch.at.age, pars$pk)
     
     # Calculate Nya for next year
-    new.nya <- calc.nya(pars$log_MeanAge0, pop.dyn$annual.age0.devs[year], pars$sigma_age0devs, pars$pk, curr.nya, catches, survival)
-    
-    # Calculate Mile-days of milt
-    mdm <- (1-pars$female.spawners)*spawn.biomass/exp(pars$logmdm_c)
-    
-    # Calculate PWSSC hydroacoustic survey
-    PWSSC.hydro <- exp(pars$PWSSC_hydro_q)*sum(prefish.spawn.biomass)
-    
-    # Spawner survey age-comps
-    spawn.age.comp <- (maturity * curr.nya)/sum(maturity * curr.nya)
-    
-    # Seine fishery age-comps
-    if(all(catches$seine)==0){
-        seine.age.comp <- -9
-    }else{
-        seine.age.comp <- (catches$seine)/sum(catches$seine)
+    new.nya <- rep(NA, nage)
+    if(project){
+        new.nya <- calc.nya(pars$log_MeanAge0, pop.dyn$annual.age0.devs[year], pars$sigma_age0devs, pars$pk, curr.nya, catches, survival)
     }
     
-    # Calculate seine fishery biomass
-    seine.biomass <- sum(catches$seine.catch*pars$waa)
-    
-    # Discontinued surveys
-    egg <- -9 # egg deposition                  10^-6*pars$female.spawners*sum(curr.nya*pop.dyn$fecundity[y,])
-    ADFG.hydro <- -9 # ADF&G hydroacoustic      exp(pars$ADFG_hydro_q)*sum(prefish.spawn.biomass)
+    survey.indices <- calc.survey.indices(curr.nya, catches, prefish.spawn.biomass, maturity, pars)
     
     ## Reassign all local matrices and vectors to their pop.dyn equivalents here
-    pop.dyn$survival.summer[year, ]         <- survival$summer
-    pop.dyn$survival.winter[year, ]         <- survival$winter
-    pop.dyn$maturity[year, ]                <- maturity
-    pop.dyn$prefish.spawn.biomass[year+1, ] <- prefish.spawn.biomass
-    pop.dyn$seine.catch[year, ]             <- catches$seine
-    pop.dyn$gillnet.catch[year, ]           <- catches$gillnet
-    pop.dyn$pound.catch[year, ]             <- catches$pound
-    pop.dyn$foodbait.catch[year, ]          <- catches$foodbait
-    pop.dyn$n.spawners[year, ]              <- n.spawners
-    pop.dyn$spawn.biomass.age.comp[year, ]  <- spawn.biomass.age.comp
-    pop.dyn$true.nya[year+1, ]              <- new.nya
-    pop.dyn$spawn.age.comp[year, ]          <- spawn.age.comp
-    pop.dyn$seine.age.comp[year, ]          <- seine.age.comp
+    pop.dyn$survival.summer[year, ]                         <- survival$summer
+    pop.dyn$survival.winter[year, ]                         <- survival$winter
+    pop.dyn$maturity[year, ]                                <- maturity
+    pop.dyn$prefish.spawn.biomass[year+1, ]                 <- prefish.spawn.biomass
+    pop.dyn$seine.catch[year, ]                             <- catches$seine
+    pop.dyn$gillnet.catch[year, ]                           <- catches$gillnet
+    pop.dyn$pound.catch[year, ]                             <- catches$pound
+    pop.dyn$foodbait.catch[year, ]                          <- catches$foodbait
+    pop.dyn$n.spawners[year, ]                              <- survey.indices$n.spawners
+    pop.dyn$spawn.biomass.age.comp[year, ]                  <- survey.indices$spawn.biomass.age.comp
+    pop.dyn$true.nya[year+1, ]                              <- new.nya
+    pop.dyn$spawn.biomass[year]                             <- survey.indices$spawn.biomass
+    pop.dyn$seine.biomass[year]                             <- survey.indices$seine.biomass
 
-    pop.dyn$spawn.biomass[year]           <- spawn.biomass
-    pop.dyn$seine.biomass[year]           <- seine.biomass
-    pop.dyn$mdm[year]                     <- mdm
-    pop.dyn$egg[year]                     <- egg
-    pop.dyn$PWSSC.hydro[year]             <- PWSSC.hydro
-    pop.dyn$ADFG.hydro[year]              <- ADFG.hydro
+    pop.dyn$survey.indices$spawn.age.comp[year, ]           <- survey.indices$spawn.age.comp
+    pop.dyn$survey.indices$seine.age.comp[year, ]           <- survey.indices$seine.age.comp
+    pop.dyn$survey.indices$mdm[year]                        <- survey.indices$mdm
+    pop.dyn$survey.indices$egg[year]                        <- survey.indices$egg
+    pop.dyn$survey.indices$PWSSC.hydro[year]                <- survey.indices$PWSSC.hydro
+    pop.dyn$survey.indices$ADFG.hydro[year]                 <- survey.indices$ADFG.hydro
+    pop.dyn$survey.indices$vhsv.antibody[year, ]            <- survey.indices$vhsv.antibody
+    pop.dyn$survey.indices$ich.antibody[year, ]             <- survey.indices$ich.antibody 
 
     return(pop.dyn)
 }
@@ -102,7 +80,7 @@ calc.survival <- function(prev.survival.summer, prev.survival.winter, Z_0_8, Z_9
                                     exp(-0.5*Z_9),
                                     prev.survival.summer[nage]*(survival.summer[nage-1]/prev.survival.summer[nage-1])
     )
-                                    #survival.summer[nage-1]*prev.survival.summer[nage]/prev.survival.summer[nage-1])
+
     survival.winter[nage] <- ifelse(length(prev.survival.winter) == 0, 
                                     exp(-0.5*Z_9),
                                     prev.survival.winter[nage]*(survival.winter[nage-1]/prev.survival.winter[nage-1])
@@ -180,3 +158,41 @@ calc.nya <- function(log.mean.age0, annual.age0.devs, sigma.age0.devs, pk, curr.
 calc.recruitment <- function(log.mean.age0, annual.age0.devs, sigma.age0.devs){
     return(exp(log.mean.age0 + annual.age0.devs - 0.5*sigma.age0.devs^2))
 }
+
+
+calc.survey.indices <- function(nya, catches, pfrb, mat, pars){
+
+    # Calculate post-fishery spawners (for milt survey)
+    n.spawners <- mat*(nya-catches$spring.total)
+    spawn.biomass.age.comp <- pars$waa*n.spawners
+    spawn.biomass <- sum(spawn.biomass.age.comp)
+
+    # Calculate mile-days of milt and egg deposition
+    mdm <- (1-pars$female.spawners)*spawn.biomass/exp(pars$logmdm_c)
+    egg <- 10^-6*pars$female.spawners*sum(nya * pars$fec)   # egg deposition
+    
+    # Calculate hydroacoustic survey
+    PWSSC.hydro <- exp(pars$PWSSC_hydro_q)*sum(pfrb)
+    ADFG.hydro <- exp(pars$ADFG_hydro_q)*sum(pfrb)                       # ADFG hydroacoustic
+
+    # Spawner survey age-comps
+    spawn.age.comp <- (mat * nya)/sum(mat * nya)
+    
+    # Seine fishery age-comps
+    seine.age.comp <- ifelse(all(catches$seine)==0, -9, (catches$seine)/sum(catches$seine))
+    
+    # Calculate seine fishery biomass
+    seine.biomass <- sum(catches$seine.catch*pars$waa) 
+
+    juv.schools <- nya[2]*exp(pars$log_juvenile_q)
+    
+    # Disease indices
+    vhsv.antibody <- rep(-9, 20)
+    ich.antibody <- rep(-9, 20)
+
+    return(listN(mdm, egg, PWSSC.hydro, ADFG.hydro, spawn.age.comp, seine.age.comp, seine.biomass, 
+                 juv.schools, vhsv.antibody, ich.antibody,
+                 n.spawners, spawn.biomass.age.comp, spawn.biomass))
+}
+
+

@@ -98,6 +98,12 @@ calculate.waa <- function(dat.files){
   return(true.waa)
 }
 
+calculate.fec <- function(dat.files){
+  fec.data <- dat.files$PWS_ASA.dat[[5]]
+  true.fec <- apply(fec.data, 2, median, na.rm=TRUE)
+  return(true.fec)
+}
+
 get.assessment.estimates <- function(dir, sim.year){
   est.ssb <- read_csv(paste0(dir, "/year_", sim.year, "/model/mcmc_out/PFRBiomass.csv"), col_names=FALSE, show_col_types = FALSE) %>%
                   select(last_col()) %>%
@@ -132,30 +138,41 @@ create.model.dir <- function(directory, year){
     return(paste0(model.dir, "/"))
 }
 
-run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.year=1, stop.year=NA, assessment=TRUE){
+run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, 
+                           start.year=1, stop.year=NA, 
+                           assessment=TRUE, hindcast=TRUE){
     print(write)
     if(is.na(write)){
       write <- paste0(here::here("results"), "/test")
     }
 
     # Copy over current stock assessment to use for starting values
-    basa.root.dir <- "~/Desktop/Projects/basa/model/"
     model.0.dir <- create.model.dir(write, 0)
-    file.remove(model.0.dir) # This is a hack to remove the internal model/ directory
-    file.symlink(basa.root.dir, paste0(write, "/year_0/"))
+    if(is.na(hindcast) || !hindcast){
+        file.remove(model.0.dir) # This is a hack to remove the internal model/ directory
+        basa.root.dir <- "~/Desktop/Projects/basa/model/"
+        file.symlink(basa.root.dir, paste0(write, "/year_0/"))
+    }else{
+        print("Running hindcast")
+        hindcast(model.0.dir)
+    }
+    
 
     # Read in data files JUST ONCE, store then write within code
     # dat.files <- read.data.files(model.0.dir)
     dat.files <- read.data.files(paste0(write, "/year_", start.year-1, "/model/"))
 
     # These are the observed (not effective) sample sizes 
-    seine.comp.obs.ss <- 500
-    spawn.comp.obs.ss <- 1500
+    sample.sizes <- list(
+      spac = 1500,
+      seac = 500
+    )
 
     # Read these out of the mcmc_out/*.csv files
     # Can be arbitary if non-operational. Can use median naa and waa from past n years
     # to set starting values
     true.waa <- calculate.waa(dat.files)
+    true.fec <- calculate.fec(dat.files)
     
     # This can be back-calculated from CAA = exploitation * selectivity * naa
     # Probably will need to be fine-tuned later.
@@ -169,6 +186,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
     params$female.spawners  <- tail(dat.files$PWS_ASA.dat$perc.female, 1)
     params$pk               <- dat.files$PWS_ASA.dat$pk
     params$waa              <- true.waa
+    params$fec              <- true.fec
     params$selectivity      <- fish.selectivity
     params$catch.sd         <- 0.1
 
@@ -256,7 +274,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, start.ye
       catch.at.age <- fun_fish(tar_hr, true.ssb, true.nya, params$waa, params$selectivity, params$catch.sd)
       
       # Run operating model
-      pop_dyn <- fun_operm(y, pop_dyn, catch.at.age, params, sim.seed)
+      pop_dyn <- fun_operm(y, pop_dyn$true.nya[y, ], catch.at.age, params, pop_dyn, sim.seed, project=TRUE)
 
       # Generate observations with error
       obs_w_err <- fun_obsm(pop_dyn$survey.indices, dat.files$PWS_ASA.dat$waa, dat.files$PWS_ASA.dat$fecundity, dat.files$PWS_ASA.dat$perc.female, 2.17, sample.sizes, y, sim.seed)
