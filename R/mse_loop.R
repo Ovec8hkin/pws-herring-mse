@@ -303,7 +303,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
 
 
       # Write all new data to .dat file (and modify covariate and agecomp_samp_sizes.txt files)
-      fun_write_dat(dat.files, catch.at.age, obs_w_err, params, list(seine=seine.comp.obs.ss, spawn=spawn.comp.obs.ss), y)
+      fun_write_dat(dat.files, catch.at.age, obs_w_err, params, sample.sizes, y)
 
       # Run BASA
       #  - allow option to skip years of assessment
