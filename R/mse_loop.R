@@ -308,19 +308,13 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
       # Run BASA
       #  - allow option to skip years of assessment
       if(assessment){
-          # max.iters <- 5
-          iters <- 1
-          # convergence.diags <- NULL
-          # while(is.null(convergence.diags) && iters <= max.iters){
-          #     convergence.diags <- run.basa.adnuts(model.dir, sim.seed)   # This is the important calculation
-          #     iters <- iters+1
-          # }
 
           # This is a wrapper around the run.basa function that reruns the assessment procedured
           # if NUTS mysteriously fails or times out. This merely helps with making sure that the
           # simulations run to completion without random NUTS errors interrupting.
           desired.samples <- 5200
           max.duration <- 20
+          iters <- 1
 
           repeat{
               if(iters > 1){
@@ -345,7 +339,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
               print(paste0(y, "/", stop.year))
 
               if(n.samples < desired.samples){
-                  max.duration <- max(round(max.duration/(n.samples/desired.samples), 0)+1, 30)
+                  max.duration <- min(round(max.duration/(n.samples/desired.samples), 0)+1, 30)
               }
 
           }
