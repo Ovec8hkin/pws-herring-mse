@@ -3,7 +3,7 @@ source(file=paste0(here::here("R/operating_model/"),  "fun_obsm.R"))
 source(file=paste0(here::here("R/estimation_model/",  "run_basa.R")))
 
 
-hindcast <- function(dir){
+hindcast <- function(dir, sim.seed){
     # Set age-composition sample sizes
     sample.sizes <- list(
         seac = 500,
@@ -27,7 +27,7 @@ hindcast <- function(dir){
     dat.files <- data
 
     for(y in 1:data$PWS_ASA.dat$nyr){
-        obs <- fun_obsm(survey.indices, waa, fec, perc.female, juv.overdisp, sample.sizes, y, 9716,
+        obs <- fun_obsm(survey.indices, waa, fec, perc.female, juv.overdisp, sample.sizes, y, sim.seed,
                         survey.controls = list(mdm=TRUE, egg=TRUE, pwssc.hydro=TRUE, adfg.hydro=TRUE, spac=TRUE, seac=TRUE, juv=TRUE, vhsv=TRUE, ich=TRUE))
         dat.files$PWS_ASA.dat$mdm[y]                <- ifelse(dat.files$PWS_ASA.dat$mdm[y]              == -9, -9, obs$mdm)
         dat.files$PWS_ASA.dat$egg[y]                <- ifelse(dat.files$PWS_ASA.dat$egg[y]              == -9, -9, obs$egg)

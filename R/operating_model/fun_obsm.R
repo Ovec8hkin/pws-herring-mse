@@ -8,6 +8,8 @@ library(gtools)
 fun_obsm <- function(survey.indices, waa, fec, perc.female, juv.overdisp, sample.sizes, y, sim.seed,
                      survey.controls = list(mdm=TRUE, egg=FALSE, pwssc.hydro=TRUE, adfg.hydro=FALSE, spac=TRUE, seac=TRUE, juv=FALSE, vhsv=FALSE, ich=FALSE)){
   
+  set.seed(sim.seed)
+
   waa <- apply(waa, 2, mean)+c(0, 0, 0, rnorm(7))
   fec <- c(0, 0, 0, apply(fec[fec[,5]!=-9,4:10], 2, mean))+c(0, 0, 0, rnorm(7))
   female <- rnorm(1, mean=mean(perc.female), sd=sd(perc.female))

@@ -17,7 +17,7 @@ sapply(files.sources, source)
 
 #source(file=paste0(here::here("R/utils/"), "fun_data_reader.R"))
 
-nyr.sim <- 10
+#nyr.sim <- 10
 nage <- 10
 
 listN <- function(...){
@@ -71,7 +71,7 @@ initialize.popdyn.variables <- function(nyr.sim){
   
 }
 
-set.initial.conditions <- function(dir, pop_dyn, mat, waa){ 
+set.initial.conditions <- function(dir, pop_dyn, mat, waa, sim.seed){ 
   # true.pop.size <- ssb*ssb.nya.conversion
   # nya.probs <- c(0.206, 0.177, 0.172, 0.136, 0.104, 0.0779, 0.055, 0.030, 0.017, 0.025)
   # if(!is.na(sim.seed)){
@@ -79,12 +79,19 @@ set.initial.conditions <- function(dir, pop_dyn, mat, waa){
   # }
   # true.nya <- as.vector(rmultinom(1, size=true.pop.size, prob=nya.probs))
 
-  year.0.est <- get.assessment.estimates(dir, 0)
+  #year.0.est <- get.assessment.estimates(dir, 0)
 
   #prop.age.structure <- as.numeric(year.0.est$est.nya[3, ]/sum(year.0.est$est.nya[3, ]))
 
-  pop_dyn$true.nya[1, ] <- as.numeric(year.0.est$est.nya[3, ]) # Should these be rounded to integers?
-  pop_dyn$prefish.spawn.biomass[1, ] <- mat*as.numeric(year.0.est$est.nya[3, ])*waa
+  # Takes a random sample of the NYA distribution from year 0
+  # (either then actual stock assessment or the hindcast model).
+  set.seed(sim.seed)
+  init.nya <- read_csv(paste0(dir, "/year_", sim.year, "/model/mcmc_out/Num_at_age.csv"), col_names=FALSE, show_col_types = FALSE) %>%
+                select_at((ncol(.)-9):ncol(.)) %>%
+                sample_n(size=1)
+
+  pop_dyn$true.nya[1, ] <- as.numeric(init.nya) # Should these be rounded to integers?
+  pop_dyn$prefish.spawn.biomass[1, ] <- mat*as.numeric(init.nya)*waa
   
   return(pop_dyn)
 }
@@ -154,7 +161,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
         file.symlink(basa.root.dir, paste0(write, "/year_0/"))
     }else{
         print("Running hindcast")
-        hindcast(model.0.dir)
+        hindcast(model.0.dir, sim.seed)
     }
     
 
@@ -197,14 +204,8 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
     pop_dyn <- set.initial.conditions(write, pop_dyn, maturity, params$waa)
 
     # Generate new age-0 recruitment deviates. Devs are pulled from a normal
-    # distribution N(0, 1.2). See docs/recrtuiment-modeling.Rmd for more info
+    # distribution N(0, 1.2). See docs/recruitment-modeling.Rmd for more info
     # on how this distribution was selected.
-    # age0.error <- 0
-    # if(!is.na(sim.seed)){
-    #   set.seed(sim.seed)
-    #   age0.error <- rnorm(nyr.sim, 0, 0.5)
-    # }
-    # pop_dyn$annual.age0.devs <- median(params$annual_age0devs) + age0.error
     set.seed(sim.seed)
     pop_dyn$annual.age0.devs <- rnorm(nyr.sim, mean=0, sd=1.20)
 
@@ -244,7 +245,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
     }
 
     if(is.na(stop.year)){
-      stop.year <- nyr.sim
+      stop.year <- start.year+nyr.sim
     }
 
     for(y in start.year:stop.year){  
@@ -272,7 +273,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
 
       # Execute fishery following management recommendation
       catch.at.age <- fun_fish(tar_hr, true.ssb, true.nya, params$waa, params$selectivity, params$catch.sd)
-      
+
       # Run operating model
       pop_dyn <- fun_operm(y, pop_dyn$true.nya[y, ], catch.at.age, params, pop_dyn, sim.seed, project=TRUE)
 
@@ -360,12 +361,15 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
     return(list(pop.dyn=pop_dyn, harvest.rate=control.rule, obs=obs_w_err, success=TRUE))
   }
 
-#   cr <- list(type="hcr.hockey.stick", lower.threshold=20000, upper.threshold=40000, min.harvest = 0.0, max.harvest=0.30)
-#   sim.dir <- paste0(here::here("results"), "/", "test", "/sim_", "513", "/")
-#   sim.out.f.00 <- run.simulation(cr, nyr.sim=15, sim.seed=513, write=sim.dir, assessment = FALSE)
+  cr <- list(type="hcr.hockey.stick", lower.threshold=20000, upper.threshold=40000, min.harvest = 0.0, max.harvest=0.30)
+  sim.dir <- paste0(here::here("results"), "/reproducability_tests/", "test_2/")
+  sim.out.f.00 <- run.simulation(cr, nyr.sim=5, sim.seed=9716, write=sim.dir, assessment = TRUE, hindcast=FALSE)
+
+  # sim.out.f.00$obs
+
 #   pop_dyn <- sim.out.f.00$pop.dyn
 
 #   prefish.spawn.biomass <- apply(pop_dyn$prefish.spawn.biomass, 1, sum)
-#   data <- data.frame(year=1:16, ssb=prefish.spawn.biomass)
+#   data <- data.frame(year=1:9, ssb=prefish.spawn.biomass)
 # ggplot(data)+
 #   geom_line(aes(x=year, y=ssb))

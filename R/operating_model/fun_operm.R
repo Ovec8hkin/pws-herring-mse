@@ -65,9 +65,7 @@ fun_operm <- function(year, curr.nya, catch.at.age, pars, pop.dyn, sim.seed=NA, 
 ## 2. Should include disease information (I think)
 calc.survival <- function(prev.survival.summer, prev.survival.winter, Z_0_8, Z_9, sim.seed){
 
-    if(!is.na(sim.seed)){
-        set.seed(sim.seed)
-    }
+    set.seed(sim.seed)
     error <- c(rep(rnorm(1, mean=0, sd=0.05), 3), rep(rnorm(1, mean=0, sd=0.05), 6), rnorm(1, 0, 0.05))
 
     survival.summer <- rep(0, nage)
