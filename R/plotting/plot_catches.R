@@ -11,14 +11,14 @@ fnames <- c("foodbait_catch.csv", "gillnet_catch.csv", "pound_catch.csv", "seine
 
 sims <- c(42, 100, 8904, 9716)
 nyr <- 15
-control.rules <- c("base", "low.harvest", "high.harvest", "lower.b0", "low.biomass", "constant.f.00")
+control.rules <- c("base", "low.harvest", "high.harvest", "constant.f.00")
 
 data <- data.frame(year=NA, catch=NA, fishery=NA, control.rule=NA, sim=NA)
 for(cr in control.rules){
     for(s in sims){
         for(f in fnames){
-            fname <- paste0(here::here("results/save/"), cr, "/sim_", s, "/year_", nyr, "/results/", f)
-            dat.fname <- paste0(here::here("results/save/"), cr, "/sim_", s, "/year_", nyr, "/model/")
+            fname <- paste0(here::here("results/"), cr, "/sim_", s, "/year_", nyr, "/results/", f)
+            dat.fname <- paste0(here::here("results/"), cr, "/sim_", s, "/year_", nyr, "/model/")
             
             waa <- read.data.files(dat.fname)$PWS_ASA.dat[[4]]
             waa <- waa[(nrow(waa)-nyr+1):nrow(waa),]
