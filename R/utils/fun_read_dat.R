@@ -102,6 +102,63 @@ read.par.file <- function(filename){
     return(par.vals)
 }
 
+read.biomass.estimates <- function(model.dir, nyr=NA){
+  fname <- paste0(here::here(model.dir), "/mcmc_out/PFRBiomass.csv")
+  biomass.data <- read.table(fname, header = FALSE, sep = ",", dec=".")
+
+  nyr <- ifelse(is.na(nyr), ncol(biomass.data)-1, nyr)
+  years <- 1980:(1980+nyr)
+
+  colnames(biomass.data) <- years
+
+  return(biomass.data[,1:nyr])
+
+}
+
+read.exploit.rates <- function(model.dir, nyr=NA){
+  raw.data <- read.data.files(model.dir)
+
+  pfrb <- read.biomass.estimates(model.dir, nyr=nyr)
+  nyr <- ifelse(is.na(nyr), ncol(pfrb), nyr)
+
+  total.catch.biomass <- compute.catch.biomass(raw.data$PWS_ASA.dat, nyr)
+  exploit.rate <- t(total.catch.biomass/t(pfrb))
+
+  return(exploit.rate)
+
+}
+
+compute.catch.biomass <- function(data, nyr){
+
+    weight.at.age <- data$waa[1:nyr,]
+
+    fb.nya <- data$foodbait_catch[1:nyr,]
+    pound.nya <- data$pound_catch[1:nyr,]
+    gillnet.nya <- data$gillnet_catch[1:nyr,]
+    seine.yield  <- data$seine_yield[1:nyr]
+    
+    fb.nya.biomass <- weight.at.age * fb.nya 
+    pound.nya.biomass <- weight.at.age * pound.nya
+    gillnet.nya.biomass <- weight.at.age * gillnet.nya 
+
+    fb.biomass.annual       <- rowSums(fb.nya.biomass) # Now sum the biomass over all age classes for each year
+    pound.biomass.annual    <- rowSums(pound.nya.biomass)
+    gillnet.biomass.annual  <- rowSums(gillnet.nya.biomass)
+
+    fb.biomass.annual       <- replace(fb.biomass.annual, fb.biomass.annual == 0, NA)
+    pound.biomass.annual    <- replace(pound.biomass.annual, pound.biomass.annual == 0, NA)
+    gillnet.biomass.annual  <- replace(gillnet.biomass.annual, gillnet.biomass.annual == 0, NA)
+    seine.yield             <- replace(seine.yield, seine.yield == 0, NA)
+    
+    # Matrix of catches by gear type in mt
+    total.catch <- cbind(fb.biomass.annual, pound.biomass.annual, gillnet.biomass.annual, seine.yield)
+    total.catch[is.na(total.catch)] <- 0 
+    total.catch.biomass <- rowSums(total.catch) # total catches by year in mt
+
+    return(total.catch.biomass)
+
+}
+
 read.survey.estimates <- function(model.dir){
 
     nage=10
