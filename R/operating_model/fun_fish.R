@@ -23,7 +23,7 @@ fun_fish <- function(target.harvest.rule, ssb.true, naa.true, weight.at.age, fis
     nopound.alloc <- 0.08
     inpound.alloc <- 0.142
     
-    alloc <- c(sacroe.seine.alloc, sacroe.gillnet.alloc, nopound.alloc, inpound.alloc, foodbait.alloc)
+    alloc <- c(sacroe.seine.alloc, sacroe.gillnet.alloc, inpound.alloc, foodbait.alloc)
     
     # Total projected yield
     #yield <- target.harvest.rule*ssb.true
