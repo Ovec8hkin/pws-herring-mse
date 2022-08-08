@@ -4,6 +4,8 @@
 # Summary:
 # Project population dynamics to next year with given catches
 
+library(tidyverse)
+
 # Read BASA data files (.dat and .ctl) into list format for easy parameter access.
 read.data.files <- function(dat.dir){
 
@@ -203,6 +205,29 @@ read.survey.estimates <- function(model.dir){
     juv.schools.data <- as.vector(juv.schools.data)
 
     return(listN(mdm.data, egg.data, pwssc.hydro.data, adfg.hydro.data, juv.schools.data, spac.data, seac.data))
+}
+
+read.catch.data <- function(cr, sims, nyr){
+
+    fnames <- c("foodbait_catch.csv", "gillnet_catch.csv", "pound_catch.csv", "seine_catch.csv")
+
+    data <- data.frame(year=NA, catch=NA, fishery=NA, control.rule=NA, sim=NA)
+    for(s in sims){
+        for(f in fnames){
+            fname <- paste0(here::here("results/"), cr, "/sim_", s, "/year_", nyr, "/results/", f)
+            dat.fname <- paste0(here::here("results/"), cr, "/sim_", s, "/year_", nyr, "/model/")
+            
+            waa <- read.data.files(dat.fname)$PWS_ASA.dat[[4]]
+            waa <- waa[(42+1):(42+1+nyr-1),]
+            catch.data <- as.matrix(read.csv(fname))[1:nyr, 2:11]
+            catch.biomass <- apply(catch.data*waa, 1, sum)
+
+            d <- data.frame(year=1:nyr, catch=catch.biomass, fishery=str_split(f, "_")[[1]][1], control.rule=cr, sim=s)
+            data <- data %>% bind_rows(d)
+        }
+    }
+    return(data)
+
 }
 
 accumulate.results.data <- function(nyr.sim, total.sims, seeds, trial, fnames, byage=FALSE, ncols=1){

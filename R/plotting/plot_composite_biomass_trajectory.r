@@ -5,13 +5,15 @@ library(dplyr)
 library(magrittr)
 library(tidyverse)
 
-sims <- c(42, 100, 8904, 9716)
+set.seed(1998)
+sims <- sample(1:1e4, size=total.sims)
 years <- seq(1980, 2022)
+nyr=10
 
-hcr.names <- c("base", "low.harvest", "high.harvest", "constant.f.00")
+hcr.names <- c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "lower.b0", "higher.b0", "constant.f.00")
 
 #tic()
-year.0.fname <- paste0(here::here("results/base/sim_100/year_0/model/mcmc_out/"), "PFRBiomass.csv")
+year.0.fname <- paste0(here::here("results/base/sim_197/year_0/model/mcmc_out/"), "PFRBiomass.csv")
 curr.biomass.data <- read_csv(year.0.fname, col_names=as.character(years)) %>% pivot_longer(everything(), names_to="year", values_to="biomass")
 curr <- data.frame(year=NA, biomass=NA, control.rule=NA, sim.num=NA)
 
@@ -28,7 +30,7 @@ for(cr in hcr.names){
                 )
             ) %>% na.omit()
     for(s in sims){
-        for(i in 1:15){
+        for(i in 1:nyr){
             fname <- paste0(here::here("results/"), cr, "/sim_", s, "/year_", i, "/model/mcmc_out/PFRBiomass.csv")
             biomass.data <- read_csv(fname, col_names=FALSE, show_col_types = FALSE) %>% select(last_col())
             data <- data.frame(year=as.character(2022+i), biomass=pull(biomass.data), control.rule=cr, sim.num=s)

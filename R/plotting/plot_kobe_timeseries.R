@@ -8,14 +8,18 @@ source(paste0(here::here("R/utils/"), "fun_read_dat.R"))
 b.star <- 40000
 f.star <- 0.20
 
-sims <- c(42, 100, 8904, 9716)
-crs <- c("base", "high.harvest", "low.harvest", "lower.b0", "low.biomass", "constant.f.00")
+total.sims <- 6
+
+set.seed(1998)
+sims <- sample(1:1e4, size=total.sims)
+nyr <- 10
+control.rules <- c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "lower.b0", "higher.b0", "constant.f.00")
 
 data <- data.frame(year=NA, biomass=NA, exploit=NA, sim=NA, cr=NA)
-for(c in crs){
+for(c in control.rules){
     for(s in sims){
         print(s)
-        model.dir <- paste0(here::here("results/save/"), c, "/sim_", s, "/year_15/model/")
+        model.dir <- paste0(here::here("results/"), c, "/sim_", s, "/year_", nyr, "/model/")
 
         biomass.estimates <- read.biomass.estimates(model.dir)
         exploit.rate.estimates <- read.exploit.rates(model.dir)
@@ -59,9 +63,11 @@ kobe.plot <- ggplot(data.df[data.df$year >= 2022, ])+
     scale_fill_manual(values = c("orange","limegreen", "#FF4000", "#fcd526"))+
     coord_cartesian(xlim=c(0, 4), ylim=c(0, 2), expand=FALSE)
 
-for(c in crs){
+for(c in control.rules){
     kobe.plot <- kobe.plot + geom_segment(data=data.df[data.df$year >= 2022 & data.df$cr==c,], aes(x=biomass, y=exploit, color=cr, xend=c(tail(biomass, n=-1), NA), yend=c(tail(exploit, n=-1), NA), group=cr), arrow=arrow(length=unit(0.5, "cm")))
 }
+
+n.tot <- 5200*total.sims
 
 kobe.plot
 
@@ -86,7 +92,7 @@ kobe.df <- data %>%
                 summarise(
                     n=n()
                 ) %>%
-                mutate(freq=n/20800) %>%
+                mutate(freq=n/n.tot) %>%
                 mutate(across(kobe.color, factor, levels=c("red", "orange", "yellow", "green")))
 
 
@@ -95,9 +101,9 @@ ggplot(kobe.df) +
     geom_vline(xintercept=2022, color="black", size=1, linetype="dashed")+
     scale_fill_manual(values=c("red", "orange", "#fedd1f", "limegreen")) +
     coord_cartesian(expand=FALSE)+
-    scale_x_continuous(breaks=c(1980, 2000, 2021, 2036))+
+    scale_x_continuous(breaks=as.integer(seq(1980, 2022+nyr+1, length.out=6)))+
     labs(x="Year", y="Proportion of Outcomes", title="Kobe Timeseries")+
-    facet_wrap(~cr, nrow=1)+
+    facet_wrap(~cr, nrow=2)+
     theme(
         legend.position = "bottom",
         panel.spacing.x = unit(0.4, "in")
@@ -128,5 +134,5 @@ ggplot(data.df.2)+
     geom_vline(xintercept=1, size=1)+
     scale_fill_manual(values = c("orange","limegreen", "#FF4000", "#fcd526"))+
     coord_cartesian(xlim=c(0, 5), ylim=c(0, 2), expand=FALSE)+
-    facet_wrap(~cr, nrow=1)+
+    facet_wrap(~cr, nrow=2)+
     theme(legend.position = "bottom") 
