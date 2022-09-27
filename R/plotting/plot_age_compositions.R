@@ -28,11 +28,17 @@ generate.post.pred <- function(seine.age.comp, spawn.age.comp, seine.ess, spawn.
 
 color.options <- c("#13F24AFF", "#FFBA00FF", "firebrick1", "darkmagenta", "blue", "#00A4FFFF")
 generate.colors <- function(n){
+
+    shifter <- function(x, n = 1) {
+        if (n == 0) x else c(tail(x, -n), head(x, n))
+    }
+
     colors <- rep(NA, n)
     i=1
     j=0
+    cs <- color.options
     while(i < n){
-        cs <- reorder(color.options, (j-1)%%length(color.options))
+        cs <- shifter(cs, -1)
         for(c in cs){
             colors[i] <- c
             colors[i] <- c
@@ -48,11 +54,11 @@ generate.colors <- function(n){
 
 start.year <- 1980
 curr.year <- 2022
-nyr.sim <- 15
+nyr.sim <- 0
 years <- seq(start.year, curr.year+nyr.sim-1)
 nyr <- length(years)
 
-model.dir <- here::here("results/save/base/sim_100/year_15/model/")
+model.dir <- here::here("results/base/sim_197/year_12/model/")
 
 raw.data <- read.data.files(model.dir)
 model.data <- list(nyr=raw.data$PWS_ASA.dat$nyr,
@@ -97,10 +103,10 @@ spac.raw.df <- as_tibble(model.data$spac) %>%
                 print(n=30)
 raw.df <- rbind(seac.raw.df, spac.raw.df)
 
-spawn.age.comp<-read.csv("mcmc_out/SpAC.csv", header = FALSE, dec=".") 
+spawn.age.comp<-read.csv(paste0(model.dir, "mcmc_out/SpAC.csv"), header = FALSE, dec=".") 
 spawn.age.comp<-spawn.age.comp[-c(1:nburn), 1:(nyr*10)]*100
 
-seine.age.comp<-read.csv("mcmc_out/SeAC.csv", header = FALSE, dec=".") 
+seine.age.comp<-read.csv(paste0(model.dir, "mcmc_out/SeAC.csv"), header = FALSE, dec=".") 
 seine.age.comp<-seine.age.comp[-c(1:nburn), 1:(nyr*10)]*100
 
 pps <- generate.post.pred(seine.age.comp, spawn.age.comp, model.data$ess.seine, model.data$ess.spawn)
@@ -141,6 +147,15 @@ spac.df <- as_tibble(spawn.age.comp.quants) %>%
             ) %>%
             print(n=30)
 
+spac.50 <- spac.df %>% select(year, age, `50%`) %>%
+            filter(!is.na(`50%`)) %>%
+            pivot_wider(names_from=age, values_from=`50%`)
+spac.50 <- as.matrix(spac.50 %>% select(c(`3`, `4`, `5`, `6`, `7`, `8`, `9`)))
+evenness.50 <- apply(spac.50, 1, shanon.weiner.evenness)
+eveness.df <- data.frame(year=1982:(curr.year+nyr.sim-1), e=round(evenness.50, 2))
+
+raw.df <- raw.df %>% left_join(eveness.df)
+
 age.comp.df <- rbind(seac.df, spac.df)
 age.comp.df$age <- factor(age.comp.df$age, levels=sort(unique(age.comp.df$age)), ordered=TRUE)
 age.comp.df$type <- factor(age.comp.df$type)
@@ -151,19 +166,13 @@ age.struct.plot <- ggplot(raw.df)+
     geom_col(aes(x=type, y=val/100, color=age, fill=fill.color), position=position_dodge(0.9), size=0.0)+
     scale_fill_manual(values=c(color.options, "grey")) + 
     geom_pointinterval(data=age.comp.df, aes(x=type, y=`50%`/100, ymin=`2.5%`/100, ymax=`97.5%`/100, color=age), position=position_dodge(0.9)) +
+    geom_text(aes(x=0.7, y=1, label=year), size=4)+
+    geom_text(aes(x=2.2, y=1, label=paste0("J=", e)), size=4)+
     geom_text(data=age.class.df, aes(x=type, y=-0.25, label=age, group=age), position=position_dodge(0.9), size=3)+
     scale_color_manual(values=rep("black", 7))+
     scale_y_continuous("Proportion", breaks=c(0.0, 0.5, 1.0))+
     scale_x_discrete(labels=c("Seine Catch", "Spawner Survey"))+
     facet_wrap(~year, nrow=12, dir="v")+
-    # geom_text(aes(x=0.615, y=-0.2, label="3"), size=2.5)+
-    # geom_text(aes(x=0.875, y=-0.2, label="5"), size=2.5)+
-    # geom_text(aes(x=1.135, y=-0.2, label="7"), size=2.5)+
-    # geom_text(aes(x=1.385, y=-0.2, label="9+"), size=2.5)+
-    # geom_text(aes(x=1.610, y=-0.2, label="3"), size=2.5)+
-    # geom_text(aes(x=1.870, y=-0.2, label="5"), size=2.5)+
-    # geom_text(aes(x=2.130, y=-0.2, label="7"), size=2.5)+
-    # geom_text(aes(x=2.385, y=-0.2, label="9+"), size=2.5)+
     coord_cartesian(clip="off", ylim=c(0, 1.15))+
     labs(x="Age Class", y="Proportion", title="Proportional Age Structure")+
     theme(
@@ -173,7 +182,9 @@ age.struct.plot <- ggplot(raw.df)+
         panel.spacing.x = unit(0.25, "line"),
         axis.text.x = element_text(margin=margin(t=12)),
         axis.ticks.x = element_blank(),
-        axis.title.x = element_text(margin=margin(t=10))
+        axis.title.x = element_text(margin=margin(t=10)),
+        strip.background = element_blank(),
+        strip.text.x = element_blank()
     )
 age.struct.plot
 
