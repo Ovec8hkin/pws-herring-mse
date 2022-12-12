@@ -336,18 +336,125 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
 
         tar_hr <- do.call(hcr.name, c(hcr.params))
 
-    return(list(pop.dyn=pop_dyn, harvest.rate=control.rule, obs=obs_w_err, success=TRUE))
-  }
+        control.rule[y] <- tar_hr
 
-  cr <- list(type="hcr.hockey.stick", lower.threshold=20000, upper.threshold=40000, min.harvest = 0.0, max.harvest=0.30)
-  sim.dir <- paste0(here::here("results"), "/reproducability_tests/", "test_2/")
-  sim.out.f.00 <- run.simulation(cr, nyr.sim=5, sim.seed=9716, write=sim.dir, assessment = TRUE, hindcast=FALSE)
+        # Execute fishery following management recommendation
+        catch.at.age <- fun_fish(tar_hr, true.ssb, true.nya, params$waa, params$selectivity, params$catch.sd)
 
-  # sim.out.f.00$obs
+        # Run operating model
+        pop_dyn <- fun_operm(y, pop_dyn$true.nya[y, ], catch.at.age, params, pop_dyn, sim.seed, project=TRUE)
 
-#   pop_dyn <- sim.out.f.00$pop.dyn
+        # Generate observations with error
+        obs_w_err <- fun_obsm(pop_dyn$survey.indices, dat.files$PWS_ASA.dat$waa, dat.files$PWS_ASA.dat$fecundity, dat.files$PWS_ASA.dat$perc.female, 2.17, sample.sizes, y, sim.seed)
 
-#   prefish.spawn.biomass <- apply(pop_dyn$prefish.spawn.biomass, 1, sum)
-#   data <- data.frame(year=1:9, ssb=prefish.spawn.biomass)
-# ggplot(data)+
-#   geom_line(aes(x=year, y=ssb))
+        wd <- getwd()
+        
+        # Write results so we can restart a failed run from specified year
+        if(!is.na(write)){
+            setwd(write)
+            results.dir <- paste0(write, "/", "year_", y, "/results/")
+            if(dir.exists(results.dir)){
+              unlink(results.dir, recursive = TRUE)
+            }
+            dir.create(results.dir, recursive = TRUE)
+            setwd(results.dir)
+
+            files <- apply(as.matrix(names(pop_dyn)), 1, str_replace_all, pattern="[.]", replacement="_")
+            lapply(seq_along(pop_dyn), function(i){
+              write.csv(pop_dyn[[i]], paste0(files[i], ".csv"), row.names = TRUE)
+            })
+
+            files <- apply(as.matrix(names(pop_dyn$survey.indices)), 1, str_replace_all, pattern="[.]", replacement="_")
+            lapply(seq_along(pop_dyn$survey.indices), function(i){
+              write.csv(pop_dyn$survey.indices[[i]], paste0(files[i], ".csv"), row.names = TRUE)
+            })
+
+            write.csv(control.rule, "harvest.csv")
+            write.csv(ass.biomass, "assessment_biomass.csv")
+
+        }
+        setwd(wd)
+
+        # Write all new data to .dat file (and modify covariate and agecomp_samp_sizes.txt files)
+        fun_write_dat(dat.files, catch.at.age, obs_w_err, params, sample.sizes, y)
+
+
+        # Run BASA
+        #  - allow option to skip years of assessment
+        if(assessment){
+
+            # Write all new data to .dat file (and modify covariate and agecomp_samp_sizes.txt files)
+            #fun_write_dat(dat.files, catch.at.age, obs_w_err, params, sample.sizes, y)
+
+            # This is a wrapper around the run.basa function that reruns the assessment procedured
+            # if NUTS mysteriously fails or times out. This merely helps with making sure that the
+            # simulations run to completion without random NUTS errors interrupting.
+
+            desired.samples <- 1000   # this should be the number of iterations per chains * the number of chains (4)
+            max.duration <- 10        # max runtime duration for the NUTS sample in minutes
+            iters <- 1
+
+            repeat{
+                if(iters > 1){
+                  Sys.sleep(5)
+                }
+
+                # print(paste("Trying with max duration of", max.duration, "minutes."))
+                convergence.diags <- run.basa.adnuts(model.dir, sim.seed, n.iter=1500, n.warmup=500, max.duration = max.duration, n.chains=1)   # This is the important calculation
+
+                # Check to make sure we actually generated the expected the number of samples
+                # within the timeframe
+                n.samples <- tryCatch({
+                    nrow(read.csv("mcmc_out/PFRBiomass.csv", header=FALSE))
+                }, error=function(e){
+                    print("Insufficient samples recorded, retrying.")
+                    0
+                })
+
+                # If the model converged and we got the right number of samples, dont repeat
+                iters <- iters+1
+                if((!is.null(convergence.diags) && 
+                    convergence.diags$divergences < 0.01 && 
+                    convergence.diags$converged && 
+                    n.samples == desired.samples) || 
+                    iters > 3){
+                  break;
+                }
+                
+                print(convergence.diags)
+                print(paste0(cr.name, " (sim ", sim.seed, "): ", y, "/", stop.year, " failed, due to lack of convergence."))
+
+                if(n.samples < desired.samples){
+                    max.duration <- min(round(max.duration/(n.samples/desired.samples), 0)+1, 30)
+                }
+
+            }
+
+            if(iters > 3){
+              return(list(success=FALSE, message="Maximum Iterations Reached", last.year=y))
+            }
+        }
+
+        # Read in the new data files and update the female.spawners param
+        dat.files <- read.data.files(model.dir)
+        params$female.spawners  <- tail(dat.files$PWS_ASA.dat$perc.female, 1)
+
+        if(!exists("convergence.diags")){
+            convergence.diags <- list(total.time=0)
+        } 
+
+        print(paste0(cr.name, " (sim ", sim.seed, "): ", y, "/", stop.year, " complete in ", round(as.numeric(convergence.diags$total.time), 2), " seconds."))
+
+    }
+    return(list(pop.dyn=pop_dyn, harvest.rate=control.rule, obs=obs_w_err, success=TRUE, last.year=y))
+}
+
+# source(file=paste0(here::here("R/operating_model/"),  "fun_operm.R"))
+# source(file=paste0(here::here("R/operating_model/"),  "fun_obsm.R"))
+#   cr <- list(type="hcr.threshold.linear",      lower.threshold=0, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20)
+#   sim.dir <- paste0(here::here("results"), "/test/")
+#   sim.out.f.00 <- run.simulation(cr, nyr.sim=5, sim.seed=1998, write=sim.dir, assessment = FALSE, hindcast=FALSE)
+
+# biomass <- apply(sim.out.f.00$pop.dyn$prefish.spawn.biomass, 1, sum)
+
+# plot(1:25, biomass, type="l")
