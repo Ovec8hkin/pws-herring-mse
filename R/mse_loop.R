@@ -183,9 +183,9 @@ generate.recruitment.deviates <- function(nyr.sim, sim.seed){
 }
 
 run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, 
-                           start.year=1, stop.year=NA, 
-                           assessment=TRUE, hindcast=TRUE){
-    print(write)
+                           start.year=1, stop.year=NA, init.start.year=2021,
+                           assessment=TRUE, hindcast=TRUE, cr.name="test"){
+    # print(write)
     if(is.na(write)){
       write <- paste0(here::here("results"), "/test")
     }
@@ -250,9 +250,21 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
 
     # Start loop
     control.rule <- rep(0, nyr.sim)
-    ass.biomass <- data.frame(matrix(0, nrow=nyr.sim, ncol=6))
+
+    # Need previous median assessment biomasses to compute HRs from gradient rule
+    prev.ass.biomass <- read_csv(paste0(model.0.dir, "mcmc_out/PFRBiomass.csv"), col_names=FALSE, show_col_types = FALSE)%>% 
+                          summarise( 
+                            across( 
+                              everything(), 
+                              quantile, 
+                              probs=c(0.025, 0.25, 0.5, 0.75, 0.975) 
+                            ) 
+                          ) 
+    nyr <- ncol(prev.ass.biomass)
+    ass.biomass <- data.frame(matrix(0, nrow=nyr+nyr.sim, ncol=6))
     colnames(ass.biomass) <- c("Year", "Biomass2.5", "Biomass25", "Biomass50", "Biomass75", "Biomass97.5")
-    ass.biomass$Year <- 1:nyr.sim
+    ass.biomass$Year <- 1980:(1980+nyr+nyr.sim-1)
+    ass.biomass[1:nyr, 2:6] <- t(prev.ass.biomass)
 
     # Read data from previous, interrupted, model run into the appropiate pop_dyn variables
     # to facilitate restarting the run at any year necesarry. 
@@ -288,114 +300,37 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
     }
 
     for(y in start.year:stop.year){  
-      #print(y)
-      print(paste0(y, "/", stop.year))
-      model.dir <- create.model.dir(write, y)
-      setwd(model.dir)
+        model.dir <- create.model.dir(write, y)
+        setwd(model.dir)
 
-      # If we want to run the full assessment, then use the assessment estimates in the HCR
-      # calculation. Otherwise, use the deterministic biomass. This is useful for debugging
-      # the operating model quickly (no need to run the whole assessment).
-      true.ssb <- sum(pop_dyn$prefish.spawn.biomass[y, ])
-      true.nya <- pop_dyn$true.nya[y, ]
-      hcr.name <- hcr.options$type
-      if(assessment){
-          ass.est <- get.assessment.estimates(write, y-1)
-          ass.biomass[y, 2:6] <- t(ass.est$est.ssb)
-          tar_hr <- match.fun(hcr.name)(as.numeric(ass.est$est.ssb[3, ]), as.numeric(ass.est$est.nya[3, ]), hcr.options) 
-      }else{
-          tar_hr <- match.fun(hcr.name)(true.ssb, true.nya, hcr.options)
-      }
-      control.rule[y] <- tar_hr
+        true.ssb <- sum(maturity*pop_dyn$true.nya[y, ]*params$waa)
+        true.nya <- pop_dyn$true.nya[y, ]
 
-      
+        # If we want to run the full assessment, then use the assessment estimates in the HCR
+        # calculation. Otherwise, use the deterministic biomass. This is useful for debugging
+        # the operating model quickly (no need to run the whole assessment).
+        hcr.name <- hcr.options$type
 
-      # Execute fishery following management recommendation
-      catch.at.age <- fun_fish(tar_hr, true.ssb, true.nya, params$waa, params$selectivity, params$catch.sd)
+        if(assessment){
+            ass.est <- get.assessment.estimates(write, y-1)
+            ass.biomass[nyr+y, 2:6] <- t(ass.est$est.ssb)
+            hcr.params <- list(
+              curr.biomass = as.numeric(ass.est$est.ssb[3, ]),
+              age.structure = as.numeric(ass.est$est.nya[3, ]),
+              rel.biomass = as.numeric(ass.biomass[nyr+y, 4]/ass.biomass[nyr+y-3, 4]),
+              weight.prop = compute.proportion.big.fish(as.numeric(ass.est$est.nya[3, ])),
+              options = hcr.options
+            )
+        }else{
+            hcr.params <- list(
+              curr.biomass = true.ssb,
+              age.structure = true.nya,
+              rel.biomass = true.ssb/sum(pop_dyn$prefish.spawn.biomass[y-3, ]),
+              options = hcr.options
+            )
+        }
 
-      # Run operating model
-      pop_dyn <- fun_operm(y, pop_dyn$true.nya[y, ], catch.at.age, params, pop_dyn, sim.seed, project=TRUE)
-
-      # Generate observations with error
-      obs_w_err <- fun_obsm(pop_dyn$survey.indices, dat.files$PWS_ASA.dat$waa, dat.files$PWS_ASA.dat$fecundity, dat.files$PWS_ASA.dat$perc.female, 2.17, sample.sizes, y, sim.seed)
-
-      wd <- getwd()
-      # Write results so we can restart a failed run from specified year
-      if(!is.na(write)){
-          setwd(write)
-          results.dir <- paste0(write, "/", "year_", y, "/results/")
-          if(dir.exists(results.dir)){
-            unlink(results.dir, recursive = TRUE)
-          }
-          dir.create(results.dir, recursive = TRUE)
-          setwd(results.dir)
-
-          files <- apply(as.matrix(names(pop_dyn)), 1, str_replace_all, pattern="[.]", replacement="_")
-          lapply(seq_along(pop_dyn), function(i){
-            write.csv(pop_dyn[[i]], paste0(files[i], ".csv"), row.names = TRUE)
-          })
-          write.csv(control.rule, "harvest.csv")
-          write.csv(ass.biomass, "assessment_biomass.csv")
-
-      }
-      setwd(wd)
-
-
-
-      # Write all new data to .dat file (and modify covariate and agecomp_samp_sizes.txt files)
-      fun_write_dat(dat.files, catch.at.age, obs_w_err, params, sample.sizes, y)
-
-      # Run BASA
-      #  - allow option to skip years of assessment
-      if(assessment){
-
-          # This is a wrapper around the run.basa function that reruns the assessment procedured
-          # if NUTS mysteriously fails or times out. This merely helps with making sure that the
-          # simulations run to completion without random NUTS errors interrupting.
-          desired.samples <- 5200
-          max.duration <- 20
-          iters <- 1
-
-          repeat{
-              if(iters > 1){
-                Sys.sleep(5)
-              }
-
-              print(paste("Trying with max duration of", max.duration, "minutes."))
-              convergence.diags <- run.basa.adnuts(model.dir, sim.seed, max.duration = max.duration)   # This is the important calculation
-
-              n.samples <- tryCatch({
-                  nrow(read.csv("mcmc_out/PFRBiomass.csv", header=FALSE))
-              }, error=function(e){
-                  print("Insufficient samples recorded, retrying.")
-                  0
-              })
-
-              iters <- iters+1
-              if((!is.null(convergence.diags) && n.samples == desired.samples) || iters > 3){
-                break;
-              }
-              print(wd)
-              print(paste0(y, "/", stop.year))
-
-              if(n.samples < desired.samples){
-                  max.duration <- min(round(max.duration/(n.samples/desired.samples), 0)+1, 30)
-              }
-
-          }
-
-          if(iters > 3){
-            return(list(success=FALSE, message="Maximum Iterations Reached"))
-          }
-      }
-      # if(convergence.diags$divergences >= 0.005 || convergence.diags$converged == FALSE){
-      #     break;
-      # }
-
-      dat.files <- read.data.files(model.dir)
-      params$female.spawners  <- tail(dat.files$PWS_ASA.dat$perc.female, 1)
-
-    }
+        tar_hr <- do.call(hcr.name, c(hcr.params))
 
     return(list(pop.dyn=pop_dyn, harvest.rate=control.rule, obs=obs_w_err, success=TRUE))
   }
