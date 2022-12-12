@@ -54,6 +54,7 @@ fun_operm <- function(year, curr.nya, catch.at.age, pars, pop.dyn, sim.seed=NA, 
     pop.dyn$survey.indices$egg[year]                        <- survey.indices$egg
     pop.dyn$survey.indices$PWSSC.hydro[year]                <- survey.indices$PWSSC.hydro
     pop.dyn$survey.indices$ADFG.hydro[year]                 <- survey.indices$ADFG.hydro
+    pop.dyn$survey.indices$juv.schools[year]                <- survey.indices$juv.schools
     pop.dyn$survey.indices$vhsv.antibody[year, ]            <- survey.indices$vhsv.antibody
     pop.dyn$survey.indices$ich.antibody[year, ]             <- survey.indices$ich.antibody 
 
@@ -177,10 +178,15 @@ calc.survey.indices <- function(nya, catches, pfrb, mat, pars){
     spawn.age.comp <- (mat * nya)/sum(mat * nya)
     
     # Seine fishery age-comps
-    seine.age.comp <- ifelse(all(catches$seine)==0, -9, (catches$seine)/sum(catches$seine))
-    
+    #seine.age.comp <- ifelse(all(catches$seine==0), rep(-9, 10), (catches$seine)/sum(catches$seine))
+    if(all(catches$seine == 0)){
+        seine.age.comp <- rep(-9, 10)
+    }else{
+        seine.age.comp <- catches$seine/sum(catches$seine)
+    }
+
     # Calculate seine fishery biomass
-    seine.biomass <- sum(catches$seine.catch*pars$waa) 
+    seine.biomass <- sum(catches$seine*pars$waa) 
 
     juv.schools <- nya[2]*exp(pars$log_juvenile_q)
     

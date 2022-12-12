@@ -6,7 +6,7 @@
 library(gtools)
 
 fun_obsm <- function(survey.indices, waa, fec, perc.female, juv.overdisp, sample.sizes, y, sim.seed,
-                     survey.controls = list(mdm=TRUE, egg=FALSE, pwssc.hydro=TRUE, adfg.hydro=FALSE, spac=TRUE, seac=TRUE, juv=FALSE, vhsv=FALSE, ich=FALSE)){
+                     survey.controls = list(mdm=TRUE, egg=FALSE, pwssc.hydro=TRUE, adfg.hydro=FALSE, spac=TRUE, seac=TRUE, juv=TRUE, vhsv=FALSE, ich=FALSE)){
   
   set.seed(sim.seed)
 
@@ -53,7 +53,7 @@ fun_obsm <- function(survey.indices, waa, fec, perc.female, juv.overdisp, sample
   egg.sd <- ifelse(survey.controls$egg, egg.sd, -9)
 
   #aerial.juv <- -9 # negative binomial error distribution (check formula)
-  aerial.juv <- ifelse(survey.controls$juv, rnbinom(1, size=1/juv.overdisp, mu=survey.indices$juv.schools), -9)
+  aerial.juv <- ifelse(survey.controls$juv, rnbinom(1, size=juv.overdisp, mu=survey.indices$juv.schools), -9)
   vhsv.antibody <- ifelse(survey.controls$vhsv, vhsv.antibody.predicted[y, ], rep(-9, 20)) # ask John for simulation code for these
   ich.antibody  <- ifelse(survey.controls$ich,  ich.antibody.predicted[y, ], rep(-9, 20))
 
