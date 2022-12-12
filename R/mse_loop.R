@@ -16,6 +16,7 @@ files.sources = list.files(here::here("R/operating_model/control_rules"), full.n
 sapply(files.sources, source)
 
 #source(file=paste0(here::here("R/utils/"), "fun_data_reader.R"))
+library(tidyverse)
 
 #nyr.sim <- 10
 nage <- 10
@@ -71,27 +72,17 @@ initialize.popdyn.variables <- function(nyr.sim){
   
 }
 
-set.initial.conditions <- function(dir, pop_dyn, mat, waa, sim.seed){ 
-  # true.pop.size <- ssb*ssb.nya.conversion
-  # nya.probs <- c(0.206, 0.177, 0.172, 0.136, 0.104, 0.0779, 0.055, 0.030, 0.017, 0.025)
-  # if(!is.na(sim.seed)){
-  #   set.seed(sim.seed)
-  # }
-  # true.nya <- as.vector(rmultinom(1, size=true.pop.size, prob=nya.probs))
-
-  #year.0.est <- get.assessment.estimates(dir, 0)
-
-  #prop.age.structure <- as.numeric(year.0.est$est.nya[3, ]/sum(year.0.est$est.nya[3, ]))
-
+set.initial.conditions <- function(dir, pop_dyn, mat, waa, sim.seed, start.year=2021){ 
   # Takes a random sample of the NYA distribution from year 0
   # (either then actual stock assessment or the hindcast model).
   set.seed(sim.seed)
-  init.nya <- read_csv(paste0(dir, "/year_", sim.year, "/model/mcmc_out/Num_at_age.csv"), col_names=FALSE, show_col_types = FALSE) %>%
-                select_at((ncol(.)-9):ncol(.)) %>%
-                sample_n(size=1)
+  nyr <- start.year-1980+1
+  init.nya <- read_csv(paste0(dir, "/year_0/model/mcmc_out/Num_at_age.csv"), col_names=FALSE, show_col_types = FALSE) %>%
+                select_at(((10*nyr)-9):(10*nyr)) %>%
+                slice_sample(n=1)
 
   pop_dyn$true.nya[1, ] <- as.numeric(init.nya) # Should these be rounded to integers?
-  pop_dyn$prefish.spawn.biomass[1, ] <- mat*as.numeric(init.nya)*waa
+  # pop_dyn$prefish.spawn.biomass[1, ] <- mat*as.numeric(init.nya)*waa
   
   return(pop_dyn)
 }
@@ -112,27 +103,27 @@ calculate.fec <- function(dat.files){
 }
 
 get.assessment.estimates <- function(dir, sim.year){
-  est.ssb <- read_csv(paste0(dir, "/year_", sim.year, "/model/mcmc_out/PFRBiomass.csv"), col_names=FALSE, show_col_types = FALSE) %>%
-                  select(last_col()) %>%
-                  summarise(
-                    across(
-                      everything(),
-                      quantile,
-                      probs=c(0.025, 0.25, 0.5, 0.75, 0.975)
+    est.ssb <- read_csv(paste0(dir, "/year_", sim.year, "/model/mcmc_out/PFRBiomass.csv"), col_names=FALSE, show_col_types = FALSE) %>%
+                    select(last_col()) %>%
+                    summarise(
+                      across(
+                        everything(),
+                        quantile,
+                        probs=c(0.025, 0.25, 0.5, 0.75, 0.975)
+                      )
                     )
+
+    est.nya <- read_csv(paste0(dir, "/year_", sim.year, "/model/mcmc_out/Num_at_age.csv"), col_names=FALSE, show_col_types = FALSE) %>% 
+                select_at((ncol(.)-9):ncol(.)) %>% 
+                summarise(
+                  across(
+                    everything(), 
+                    quantile, 
+                    probs=c(0.025, 0.25, 0.5, 0.75, 0.975)
                   )
-
-  est.nya <- read_csv(paste0(dir, "/year_", sim.year, "/model/mcmc_out/Num_at_age.csv"), col_names=FALSE, show_col_types = FALSE) %>% 
-              select_at((ncol(.)-9):ncol(.)) %>% 
-              summarise(
-                across(
-                  everything(), 
-                  quantile, 
-                  probs=c(0.025, 0.25, 0.5, 0.75, 0.975)
                 )
-              )
 
-  return(listN(est.ssb, est.nya))
+    return(listN(est.ssb, est.nya))
 }
 
 create.model.dir <- function(directory, year){
@@ -247,13 +238,15 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
 
     # Initialize projection estimates (e.g. from forecast model)
     pop_dyn <- initialize.popdyn.variables(nyr.sim)
-    pop_dyn <- set.initial.conditions(write, pop_dyn, maturity, params$waa)
+    pop_dyn <- set.initial.conditions(write, pop_dyn, maturity, params$waa, sim.seed, init.start.year-1)
 
-    # Generate new age-0 recruitment deviates. Devs are pulled from a normal
-    # distribution N(0, 1.2). See docs/recruitment-modeling.Rmd for more info
-    # on how this distribution was selected.
-    set.seed(sim.seed)
-    pop_dyn$annual.age0.devs <- rnorm(nyr.sim, mean=0, sd=1.20)
+    # Generate new age-0 recruitment deviates.
+    # Devs are pulled from a regime-based recruitment function.
+    recruitment <- generate.recruitment.deviates(nyr.sim, sim.seed)
+    pop_dyn$annual.age0.devs <- recruitment$devs
+    params$sigma_age0devs <- recruitment$sigmas
+    #pop_dyn$annual.age0.devs <- rnorm(nyr.sim, mean=-0.35, sd=0.9) # change this so that the fishery doesn't immediately recover
+    
 
     # Start loop
     control.rule <- rep(0, nyr.sim)
