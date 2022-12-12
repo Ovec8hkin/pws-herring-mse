@@ -28,7 +28,7 @@ fun_operm <- function(year, curr.nya, catch.at.age, pars, pop.dyn, sim.seed=NA, 
     # Calculate Nya for next year
     new.nya <- rep(NA, nage)
     if(project){
-        new.nya <- calc.nya(pars$log_MeanAge0, pop.dyn$annual.age0.devs[year], pars$sigma_age0devs, pars$pk, curr.nya, catches, survival)
+        new.nya <- calc.nya(pars$log_MeanAge0, pop.dyn$annual.age0.devs[year], pars$sigma_age0devs[year], pars$pk, curr.nya, catches, survival)
     }
     
     survey.indices <- calc.survey.indices(curr.nya, catches, prefish.spawn.biomass, maturity, pars)
@@ -37,7 +37,7 @@ fun_operm <- function(year, curr.nya, catch.at.age, pars, pop.dyn, sim.seed=NA, 
     pop.dyn$survival.summer[year, ]                         <- survival$summer
     pop.dyn$survival.winter[year, ]                         <- survival$winter
     pop.dyn$maturity[year, ]                                <- maturity
-    pop.dyn$prefish.spawn.biomass[year+1, ]                 <- prefish.spawn.biomass
+    pop.dyn$prefish.spawn.biomass[year, ]                   <- prefish.spawn.biomass
     pop.dyn$seine.catch[year, ]                             <- catches$seine
     pop.dyn$gillnet.catch[year, ]                           <- catches$gillnet
     pop.dyn$pound.catch[year, ]                             <- catches$pound

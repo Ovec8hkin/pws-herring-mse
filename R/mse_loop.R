@@ -35,7 +35,7 @@ initialize.popdyn.variables <- function(nyr.sim){
   survival.summer         <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
   survival.winter         <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
   maturity                <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
-  prefish.spawn.biomass   <- matrix(0, nyr.sim+1, nage, dimnames=list(c(rownames, nyr.sim+1), colnames))
+  prefish.spawn.biomass   <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
   seine.catch             <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
   gillnet.catch           <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
   pound.catch             <- matrix(0, nyr.sim, nage,   dimnames=list(rownames, colnames))
@@ -143,6 +143,52 @@ create.model.dir <- function(directory, year){
     }
     dir.create(model.dir, recursive = TRUE)
     return(paste0(model.dir, "/"))
+}
+
+compute.proportion.big.fish <- function(nya, big.fish.threshold=100){
+
+    dist.means = c(NA, NA, NA, 63.7, 84.3, 120.0, 112.0, 127.0, 128.0, 142.0)
+    dist.sds   = c(NA, NA, NA, 17.6, 22.2, 23.2,  18.2,  28.5,  37.5,  21.2)
+
+    nya.integer = as.integer(nya)
+
+    all.fish.weights <- c()
+
+    for(i in 4:10){
+        m = dist.means[i]
+        s = dist.sds[i]
+        n = nya.integer[i]
+        all.fish.weights <- c(all.fish.weights, rnorm(n, m, s))
+    }
+
+    return(sum(all.fish.weights > big.fish.threshold)/length(all.fish.weights))
+
+}
+
+generate.recruitment.deviates <- function(nyr.sim, sim.seed){
+  set.seed(sim.seed)
+  max.regime.length <- 15
+
+  devs <- rep(NA, nyr.sim)
+  sigmas <- rep(NA, nyr.sim)
+
+  devs[1:5] <- rnorm(5, -0.34, 0.904)
+  sigmas[1:5] <- rep(0.904, 5)
+
+  high.regime <- FALSE
+  for(y in 1:(nyr.sim-5)){
+    if(y %% max.regime.length == 0) high.regime <- !high.regime
+
+    dev <- ifelse(high.regime == 1, rnorm(1, -0.34, 0.904), rnorm(1, 0.829, 1.404))
+    sig <- ifelse(high.regime == 1, 0.904, 1.404)
+
+    devs[y+5] <- dev
+    sigmas[y+5] <- sig
+
+  }
+
+  return(list(devs=devs, sigmas=sigmas))
+
 }
 
 run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, 
