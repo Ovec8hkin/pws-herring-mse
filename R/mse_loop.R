@@ -96,6 +96,9 @@ calculate.waa <- function(dat.files){
   return(true.waa)
 }
 
+# Computed median fecundity from raw fecundity data
+# over the years collected. Fecundity is assumed stable
+# on an annual basis.
 calculate.fec <- function(dat.files){
   fec.data <- dat.files$PWS_ASA.dat[[5]]
   true.fec <- apply(fec.data, 2, median, na.rm=TRUE)
@@ -203,7 +206,6 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
     
 
     # Read in data files JUST ONCE, store then write within code
-    # dat.files <- read.data.files(model.0.dir)
     dat.files <- read.data.files(paste0(write, "/year_", start.year-1, "/model/"))
 
     # These are the observed (not effective) sample sizes 
@@ -213,19 +215,15 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
     )
 
     # Read these out of the mcmc_out/*.csv files
-    # Can be arbitary if non-operational. Can use median naa and waa from past n years
-    # to set starting values
     true.waa <- calculate.waa(dat.files)
     true.fec <- calculate.fec(dat.files)
     
-    # This can be back-calculated from CAA = exploitation * selectivity * naa
-    # Probably will need to be fine-tuned later.
-    # Can assume fully-selected fishery by setting selectivity=1
-    # Would need to add some error to the CAA.
+    # Assuming knife-edged selectivity at age-3
+    # Could replace with maturity ogive?
     fish.selectivity <- matrix(1, nrow=4, ncol=10)
     fish.selectivity[, 1:3] <- 0 # Selectivity 0 for fish age 0-2
 
-
+    # Read in other parameters
     params <- read.par.file("~/Desktop/Projects/basa/model/PWS_ASA.par")
     params$female.spawners  <- tail(dat.files$PWS_ASA.dat$perc.female, 1)
     params$pk               <- dat.files$PWS_ASA.dat$pk
@@ -270,33 +268,39 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
     # to facilitate restarting the run at any year necesarry. 
     if(start.year != 1){
         # This handles the population dynamics matrices
-        vars <- names(pop_dyn)
-        fnames <- apply(as.matrix(vars), 1, str_replace_all, pattern="[.]", replacement="_")
-        file.paths <- apply(as.matrix(fnames), 1, function(f) paste0(write, "year_", start.year-1, "/results/", f, ".csv"))
-        for(i in 1:length(vars)){
-            data <- as.matrix(read.csv(file.paths[i]))
-            dims <- dim(data)
-            if(dims[2] > 2){
-                pop_dyn[[vars[i]]][1:dims[1],1:(dims[2]-1)] <- data[,2:ncol(data)]
-            }else{
-                pop_dyn[[vars[i]]][1:dims[1]] <- data[,2:ncol(data)]
+        tryCatch({
+            vars <- names(pop_dyn)
+            vars <- vars[! vars %in% c("survey.indices")]
+            fnames <- apply(as.matrix(vars), 1, str_replace_all, pattern="[.]", replacement="_")
+            file.paths <- apply(as.matrix(fnames), 1, function(f) paste0(write, "year_", start.year-1, "/results/", f, ".csv"))
+            for(i in 1:length(vars)){
+                data <- as.matrix(read.csv(file.paths[i]))
+                dims <- dim(data)
+                if(dims[2] > 2){
+                    pop_dyn[[vars[i]]][1:dims[1],1:(dims[2]-1)] <- data[,2:ncol(data)]
+                }else{
+                    pop_dyn[[vars[i]]][1:dims[1]] <- data[,2:ncol(data)]
+                }
             }
-        }
 
-        # These handle the three special case matrics: annual.age0.devs, harvest_rate, and assessment_biomass
-        age0.dev.data <- read.csv(paste0(write, "year_", start.year-1, "/results/annual_age0_devs.csv"))
-        pop_dyn$annual.age0.devs[1:nrow(age0.dev.data)] <- age0.dev.data[,2]
+            # These handle the three special case matrics: annual.age0.devs, harvest_rate, and assessment_biomass
+            age0.dev.data <- read.csv(paste0(write, "year_", start.year-1, "/results/annual_age0_devs.csv"))
+            pop_dyn$annual.age0.devs[1:nrow(age0.dev.data)] <- age0.dev.data[,2]
 
-        harvest.rate.data <- read.csv(paste0(write, "year_", start.year-1, "/results/harvest.csv"))
-        control.rule[1:nrow(harvest.rate.data)] <- harvest.rate.data[,2]
+            harvest.rate.data <- read.csv(paste0(write, "year_", start.year-1, "/results/harvest.csv"))
+            control.rule[1:nrow(harvest.rate.data)] <- harvest.rate.data[,2]
 
-        ass.biomass.data <- read.csv(paste0(write, "year_", start.year-1, "/results/assessment_biomass.csv"))
-        ass.biomass[1:nrow(ass.biomass.data), 2:ncol(ass.biomass)] <- ass.biomass.data[,3:ncol(ass.biomass.data)]
+            ass.biomass.data <- read.csv(paste0(write, "year_", start.year-1, "/results/assessment_biomass.csv"))
+            ass.biomass[1:nrow(ass.biomass.data), 2:ncol(ass.biomass)] <- ass.biomass.data[,3:ncol(ass.biomass.data)]
+
+        }, error=function(e){
+            start.year <- 1
+        })
 
     }
 
     if(is.na(stop.year)){
-      stop.year <- start.year+nyr.sim
+      stop.year <- nyr.sim
     }
 
     for(y in start.year:stop.year){  
