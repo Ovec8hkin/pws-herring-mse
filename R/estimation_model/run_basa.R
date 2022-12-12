@@ -44,7 +44,7 @@ OS <- "MAC"
 
 # BE SURE TO CHECK YOUR DIRECTORY
 
-run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.duration=5){
+run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.duration=5, n.chains=4){
 
     setwd(model.dir)
 
@@ -134,15 +134,15 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
     ######################################################
     # Create reps x starting par vectors, and run NUTS
     setwd(model.dir)
-    reps <- 4
+    reps <- n.chains
     set.seed(1120)
     seeds <- sample(1:1e4, size=reps)
 
     # Switch this out for a call to system2 and check whether the solution
-    # is positive definite. Non positive definite erros result in NUTS
+    # is positive definite. Non positive definite errors result in NUTS
     # failures that are non-recoverable.
     res <- system2("./PWS_ASA", args=c("-pinwrite",  "-hbf",  "1"), stdout=TRUE)
-    if("positive definite" %in% res[length(res)]){
+    if(grepl("positive definite", res[length(res)], fixed=TRUE)){
         print("Hessian was not positive definite")
         return(NULL)
     }
@@ -175,17 +175,8 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
         print(e)
         return(NULL)
     })
-    # fit.1 <- sample_nuts(model='./PWS_ASA',
-    #                      path=model.dir,
-    #                      init=inits, seeds=seeds, chains=reps, cores=reps,
-    #                      iter=n.iter,
-    #                      warmup=n.warmup,
-    #                      duration=max.duration,
-    #                      mceval=TRUE,
-    #                      control=list(adapt_delta=0.9, metric="mle")
-    #                 )
+    
     end.time <- Sys.time()
-    print(end.time - start.time)
 
     if(is.null(fit.1)){
       print("fit.1 failed, exiting with NULL")
@@ -199,6 +190,10 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
     # Quick check for divergences & Gelman-Ruben statistic
     n.divergences <- sum(x$divergent__)/nrow(x)
     r.hat <- max(mon[, "Rhat"])<=1.1
+
+    if(!r.hat){
+      print(mon[which.max(mon[, "Rhat"]), "Rhat"])
+    }
 
     # Write summary of parameter posteriors (medians, percentiles, etc)
     write.csv(mon, file="mcmc_out/table_par_posterior_summary.csv")
@@ -225,7 +220,8 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
     return(
       list(
           divergences=n.divergences,
-          converged=r.hat
+          converged=r.hat,
+          total.time=difftime(end.time, start.time, units="secs")
       )
     )
 
