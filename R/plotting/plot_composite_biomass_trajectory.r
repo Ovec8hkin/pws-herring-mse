@@ -53,20 +53,28 @@ ggplot(df.trans, aes(x=year, y=biomass, ymin=.lower, ymax=.upper, group=1)) +
     geom_hline(yintercept = 40000, linetype="longdash")+
     scale_fill_brewer(palette = "Blues")+
     scale_x_discrete("Year", breaks=seq(1980, 2038, by=5))+
-    scale_y_continuous("Pre-Fishery Biomass", breaks=c(0, 20000, 40000, 50000, 100000, 150000, 200000))+
+    scale_y_continuous("Pre-Fishery Biomass", breaks=c(0, 20000, 40000, 50000, 100000, 150000, 200000), expand=c(0,0))+
     coord_cartesian(ylim=c(0, 220000))+
     facet_wrap(~control.rule, drop=TRUE, ncol=2)+
     theme(panel.grid.minor = element_blank())
 
+df.trans$control.rule <- factor(df.trans$control.rule, 
+                                levels=c("base", "base_small", "high.harvest", "low.harvest", "lower.b0", "low.biomass", "higher.b0", "high.biomass", "constant.f.00", "evenness", "gradient", "three.step.thresh", "big.fish"),
+                                labels=c("Default", "Small SS", "High F", "Low F", "Low B0", "Low Threshold", "High B0", "High Threshold", "No Fishing", "Evenness", "Gradient", "Three-Step Threshold", "Big Fish"))
+
 # Side-by-side trajectories 
 ggplot(df.trans, aes(x=year, y=biomass, color=control.rule, group=control.rule))+
     geom_line(size=1.0)+
-    geom_lineribbon(data=df.trans[(df.trans$control.rule=="base" & df.trans$year < 2022),], aes(ymin=.lower, ymax=.upper), color="black", size=0.75)+
+    scale_color_manual(values=c("black", "red", "blue", "#00A600", "#530d7e", "#E97902", "#AF0092", "#A6A6A6", "#B8DD4F", "#31aef1"))+
+    geom_lineribbon(data=df.trans[(df.trans$control.rule=="Default" & df.trans$year < 2022),], aes(ymin=.lower, ymax=.upper), color="black", size=0.75)+
     geom_vline(xintercept=2022-1980)+
     geom_hline(yintercept = 20000, linetype="longdash")+
     geom_hline(yintercept = 40000, linetype="longdash")+
-    scale_fill_brewer(palette = "Blues")+
-    scale_x_discrete("Year", breaks=seq(1980, 2038, by=5))+
-    scale_y_continuous("Pre-Fishery Biomass", breaks=c(0, 20000, 40000, 50000, 100000, 150000, 200000, 250000, 300000))+
+    scale_fill_grey(start=0.8, end=0.6)+
+    scale_x_discrete("Year", breaks=seq(1980, 2022+nyr, by=5), expand=c(0,0))+
+    scale_y_continuous("Pre-Fishery Biomass", breaks=c(0, 20000, 40000, 50000, 100000, 150000, 200000, 250000, 300000), expand=c(0,0))+
     coord_cartesian(ylim=c(0, 300000))+
-    theme(panel.grid.minor = element_blank())
+    ggtitle("Biomass Trajectory under Eight Possible Control Rules")+
+    theme(
+        panel.grid.minor = element_blank(),
+    )
