@@ -67,7 +67,7 @@ for(c in control.rules){
     kobe.plot <- kobe.plot + geom_segment(data=data.df[data.df$year >= 2022 & data.df$cr==c,], aes(x=biomass, y=exploit, color=cr, xend=c(tail(biomass, n=-1), NA), yend=c(tail(exploit, n=-1), NA), group=cr), arrow=arrow(length=unit(0.5, "cm")))
 }
 
-n.tot <- 5200*total.sims
+n.tot <- 600*total.sims
 
 kobe.plot
 
@@ -101,7 +101,7 @@ ggplot(kobe.df) +
     geom_vline(xintercept=2022, color="black", size=1, linetype="dashed")+
     scale_fill_manual(values=c("red", "orange", "#fedd1f", "limegreen")) +
     coord_cartesian(expand=FALSE)+
-    scale_x_continuous(breaks=as.integer(seq(1980, 2022+nyr+1, length.out=6)))+
+    scale_x_continuous(breaks=as.integer(seq(1980, 2022+nyr+1, by=10)))+
     labs(x="Year", y="Proportion of Outcomes", title="Kobe Timeseries")+
     facet_wrap(~cr, nrow=2)+
     theme(
