@@ -8,12 +8,16 @@ source(paste0(here::here("R/utils/"), "fun_read_dat.R"))
 b.star <- 40000
 f.star <- 0.20
 
-total.sims <- 6
+total.sims <- 5
 
 set.seed(1998)
-sims <- sample(1:1e4, size=total.sims)
-nyr <- 10
-control.rules <- c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "lower.b0", "higher.b0", "constant.f.00")
+sims <- c(197, 649, 1998, 2078, 2255, 2386, 3709, 4716, 8388, 8904, 9716)
+
+#hcr.names <- c("base", "high.harvest", "low.harvest", "high.biomass", "low.biomass", "constant.f.00")
+nyr <- 25
+sims <- c(197, 2255, 2386, 3709, 4716, 8388, 8904, 8634, 8935, 1094, 4288)
+
+control.rules <- c("base", "high.harvest", "low.harvest", "high.biomass", "low.biomass", "evenness", "gradient", "three.step.thresh", "big.fish", "constant.f.00")
 
 data <- data.frame(year=NA, biomass=NA, exploit=NA, sim=NA, cr=NA)
 for(c in control.rules){

@@ -7,20 +7,8 @@ library(magrittr)
 library(tidyverse)
 
 source(file=paste0(here::here("R/plotting/", "compute_plot_products.R")))
+source(file=paste0(here::here("R/plotting/", "plot_util_vals.r")))
 source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
-
-read.biomass.data <- function(cr, sims, nyr){
-    data <- data.frame(year=NA, biomass=NA, cr=NA, sim=NA) 
-    for(s in sims){
-        for(i in 1:nyr){
-            fname <- paste0(here::here("results/"), cr, "/sim_", s, "/year_", i, "/model/mcmc_out/PFRBiomass.csv")
-            biomass.data <- read_csv(fname, col_names=FALSE, show_col_types = FALSE) %>% select(last_col())
-            bio.df <- data.frame(year=as.character(2022+i), biomass=pull(biomass.data), cr=cr, sim=s)
-            data <- data %>% bind_rows(bio.df) %>% na.omit()
-        }
-    }
-    return(data)
-}
 
 fnames <- c("foodbait_catch.csv", "gillnet_catch.csv", "pound_catch.csv", "seine_catch.csv")
 nyr <- 25
@@ -34,7 +22,7 @@ model.dir <- here::here("results/base/sim_197/year_25/model/")
 
 biomass.df <- compute.biomass.traj(model.dir, nyr, years)
 
-bio.traj.df <- data.frame(year=NA, biomass=NA, cr=NA, sim=NA)
+bio.traj.df <- data.frame(year=NA, biomass=NA, control.rule=NA, sim=NA)
 catch.data <- data.frame(year=NA, catch=NA, fishery=NA, control.rule=NA, sim=NA)
 for(cr in hcr.names){
     print(cr)
@@ -72,7 +60,7 @@ aav.df <- catch.data %>% na.omit() %>%
 
 prob.threshold.df <- as_tibble(bio.traj.df) %>% na.omit() %>%
                     filter(year > 2021) %>%
-                    group_by(cr, sim) %>%
+                    group_by(control.rule, sim) %>%
                     summarise(
                         n=n(),
                         n.below=sum(biomass < 19958),
@@ -84,7 +72,7 @@ biomass.df <- as_tibble(bio.traj.df) %>% na.omit() %>%
                 filter(year == max(bio.traj.df$year, na.rm=TRUE)) %>%
                 mutate(depletion=biomass/40000) %>%
                 select(-c(year)) %>%
-                relocate(c(cr, sim, biomass, depletion)) %>%
+                relocate(c(control.rule, sim, biomass, depletion)) %>%
                 print(n=10)
 
 average.catch.df <- catch.data %>% na.omit() %>%
@@ -96,14 +84,15 @@ average.catch.df <- catch.data %>% na.omit() %>%
                         print(n=10)
 
 catch.biomass.df <- biomass.df %>% 
-                    inner_join(average.catch.df, by=c("cr" = "control.rule", "sim")) %>%
-                    inner_join(aav.df, by=c("cr" = "control.rule", "sim")) %>%
-                    inner_join(prob.threshold.df, by=c("cr", "sim"))
+                    inner_join(average.catch.df, by=c("control.rule", "sim")) %>%
+                    inner_join(aav.df, by=c("control.rule", "sim")) %>%
+                    inner_join(prob.threshold.df, by=c("control.rule", "sim")) %>%
+                    mutate(control.rule=recode_factor(control.rule, !!!hcr.levels))
 
 
 catch.biomass.df <- as_tibble(catch.biomass.df) %>%
                         select(-c(n, n.below)) %>%
-                        group_by(cr) %>%
+                        group_by(control.rule) %>%
                         median_qi(
                             tot_catch, biomass, depletion, aav, prob.below,
                             .width=c(0.5, 0.95)
@@ -168,7 +157,7 @@ generate.tradeoff.plot <- function(vars){
         biomass = "Final Year Biomass (10000 mt)",
         depletion = "Final Year Depletion Level",
         aav = "Average Annual Catch Variation",
-        prob.below = "Probability Biomass Below Lower Regulatory Threshold"
+        prob.below = "Proportion of Years Biomass Below Lower Regulatory Threshold"
     )
 
     metric.names.short <- list(
@@ -176,7 +165,7 @@ generate.tradeoff.plot <- function(vars){
         biomass = "Final Year Biomass",
         depletion = "Final Year Depletion",
         aav = "Catch Variation",
-        prob.below = "Probability Biomass Below Threshold"
+        prob.below = "Proportion of Years Below Threshold"
 
     )
 
@@ -221,125 +210,20 @@ generate.tradeoff.plot(c("biomass", "aav"))
 generate.tradeoff.plot(c("tot_catch", "aav"))
 generate.tradeoff.plot(c("tot_catch", "prob.below"))
 
-# ### Catch vs Biomass Tradeoff
-# model <- fit.tradeoff.line(tot.catch ~ biomass, 0:200000, "biomass")
-
-# cvb.toff.plot <- ggplot(catch.biomass.df)+
-#                     geom_pointinterval(aes(x=biomass, xmin=biomass.lower, xmax=biomass.upper,
-#                                         y=tot.catch,
-#                                         color=control.rule))+
-#                     geom_pointinterval(aes(x=biomass,
-#                                         y=tot.catch, ymin=tot.catch.lower, ymax=tot.catch.upper,
-#                                         color=control.rule))+
-#                     geom_smooth(aes_auto(model$preds), data=model$preds, stat="identity", color="black")+
-#                     scale_x_continuous(breaks=seq(0, 150000, 10000), labels=seq(0, 150, 10))+
-#                     scale_y_continuous(breaks=seq(0, 1000000, 50000), labels=seq(0, 1000, 50))+
-#                     coord_cartesian(xlim=c(0, 150000), ylim=c(0, 500000))+
-#                     labs(x="Final Year Biomass (1000 mt)", y="Total Catch (1000 mt)")+
-#                     ggtitle("Catch - Biomass Tradeoff")+
-#                     theme(
-#                         panel.grid.minor = element_blank()
-#                     )
-# cvb.toff.plot
-
-# ### Catch vs Prob Beow Threshold Tradeoff
-# model <- fit.tradeoff.line(tot.catch ~ prob.below, seq(0, 1, 0.01), "prob.below")
-
-# cvprob.toff.plot <- ggplot(catch.biomass.df)+
-#     geom_pointinterval(aes(x=prob.below, xmin=prob.below.lower, xmax=prob.below.upper,
-#                         y=tot.catch,
-#                         color=control.rule))+
-#     geom_pointinterval(aes(x=prob.below,
-#                         y=tot.catch, ymin=tot.catch.lower, ymax=tot.catch.upper,
-#                         color=control.rule))+
-#     geom_smooth(aes_auto(model$preds), data=model$preds, stat="identity", color="black")+
-#     scale_x_reverse(breaks=seq(0, 0.5, 0.05), labels=seq(0, 0.5, 0.05))+
-#     scale_y_continuous(breaks=seq(0, 1000000, 50000), labels=seq(0, 1000, 50))+
-#     coord_cartesian(xlim=c(0.5, 0), ylim=c(0, 500000))+
-#     labs(x="Probability Below Threshold", y="Total Catch (1000 mt)")+
-#     ggtitle("Catch - Biomass Tradeoff")+
-#     theme(
-#         panel.grid.minor = element_blank()
-#     )
-# cvprob.toff.plot
-
-# ## Catch vs Depletion Tradeoff
-# # model <- fit.tradeoff.line(tot.catch ~ depletion, seq(0, 5, 0.01), "depletion")
-
-# # cvd.toff.plot <- ggplot(catch.biomass.df)+
-# #                     geom_pointinterval(aes(x=depletion, xmin=depletion.lower, xmax=depletion.upper,
-# #                                         y=tot.catch,
-# #                                         color=control.rule))+
-# #                     geom_pointinterval(aes(x=depletion,
-# #                                         y=tot.catch, ymin=tot.catch.lower, ymax=tot.catch.upper,
-# #                                         color=control.rule))+
-# #                     geom_smooth(aes_auto(model$preds), data=model$preds, stat="identity", color="black")+
-# #                     scale_x_continuous(breaks=seq(0, 5, 0.5), labels=seq(0, 5, 0.5))+
-# #                     scale_y_continuous(breaks=seq(0, 1000000, 50000), labels=seq(0, 1000, 50))+
-# #                     coord_cartesian(xlim=c(0, 5), ylim=c(0, 500000))+
-# #                     labs(x="Final Year Depletion", y="Total Catch (1000 mt)")+
-# #                     ggtitle("Catch - Depletion Tradeoff")+
-# #                     theme(
-# #                         panel.grid.minor = element_blank()
-# #                     )
-# # cvd.toff.plot
-
-# ## Catch AAV vs Biomass Tradeoff
-# model <- fit.tradeoff.line(aav ~ biomass, 0:200000, "biomass")
-
-# aavvb.toff.plot <- ggplot(catch.biomass.df)+
-#                     geom_pointinterval(aes(x=biomass, xmin=biomass.lower, xmax=biomass.upper,
-#                                         y=aav,
-#                                         color=control.rule))+
-#                     geom_pointinterval(aes(x=biomass,
-#                                         y=aav, ymin=aav.lower, ymax=aav.upper,
-#                                         color=control.rule))+
-#                     geom_smooth(aes_auto(model$preds), data=model$preds, stat="identity", color="black")+
-#                     scale_x_continuous(breaks=seq(0, 150000, 10000), labels=seq(0, 150, 10))+
-#                     scale_y_reverse(breaks=seq(0, 1, 0.1), labels=seq(0, 1, 0.1))+
-#                     coord_cartesian(xlim=c(0, 150000), ylim=c(1, 0))+
-#                     labs(x="Final Year Biomass (1000 mt)", y="Average Annual Catch Variation")+
-#                     ggtitle("Annual Catch Variation - Biomass Tradeoff")+
-#                     theme(
-#                         panel.grid.minor = element_blank()
-#                     )
-# aavvb.toff.plot
-
-
-# ## Catch AAV vs Catch
-# model <- fit.tradeoff.line(aav ~ tot.catch, 0:500000, "tot.catch")
-
-# aavvc.toff.plot <- ggplot(catch.biomass.df)+
-#                         geom_pointinterval(aes(x=tot.catch, xmin=tot.catch.lower, xmax=tot.catch.upper,
-#                                             y=aav,
-#                                             color=control.rule))+
-#                         geom_pointinterval(aes(x=tot.catch,
-#                                             y=aav, ymin=aav.lower, ymax=aav.upper,
-#                                             color=control.rule))+
-#                         geom_smooth(aes_auto(model$preds), data=model$preds, stat="identity", color="black")+
-#                         scale_x_continuous(breaks=seq(0, 500000, 50000), labels=seq(0, 500, 50))+
-#                         scale_y_reverse(breaks=seq(0, 1, 0.1), labels=seq(0, 1, 0.1))+
-#                         coord_cartesian(xlim=c(0, 500000), ylim=c(1, 0), expand=c(0.1, 0.1))+
-#                         labs(x="Total Catch (1000 mt)", y="Average Annual Catch Variation")+
-#                         ggtitle("Catch - Annual Catch Variation Tradeoff")+
-#                         theme(
-#                             panel.grid.minor = element_blank()
-#                         )
-# aavvc.toff.plot
-
 library(patchwork)
 (cvb.toff.plot+guides(color=FALSE) | aavvb.toff.plot+guides(color=FALSE) | aavvc.toff.plot)
 
 
-cvb.lm.model   <- lm(tot.catch ~ biomass, data=catch.biomass.df[catch.biomass.df$.width == 0.5,])
-aavvb.lm.model <- lm(aav ~ biomass, data=catch.biomass.df[catch.biomass.df$.width == 0.5,])
-aavvc.lm.model <- lm(aav ~ tot.catch, data=catch.biomass.df[catch.biomass.df$.width == 0.5,])
+cvb.lm.model   <- lm(tot_catch ~ biomass,     data=catch.biomass.df %>% filter(.width == 0.5) %>% select(tot_catch, biomass))
+aavvb.lm.model <- lm(aav ~ biomass,           data=catch.biomass.df %>% filter(.width == 0.5) %>% select(aav, biomass))
+aavvc.lm.model <- lm(aav ~ tot_catch,           data=catch.biomass.df %>% filter(.width == 0.5) %>% select(aav, tot_catch))
+cvprob.lm.model <- lm(tot_catch ~ prob.below,   data=catch.biomass.df %>% filter(.width == 0.5) %>% select(tot_catch, prob.below) %>% mutate(prob.below = 100*prob.below))
 
-intercepts <- c(cvb.lm.model$coefficients[1], aavvb.lm.model$coefficients[1], aavvc.lm.model$coefficients[1])
-slopes <- c(cvb.lm.model$coefficients[2], aavvb.lm.model$coefficients[2], aavvc.lm.model$coefficients[2])
-rsq <- c(summary(cvb.lm.model)$r.squared, summary(aavvb.lm.model)$r.squared , summary(aavvc.lm.model)$r.squared )
+intercepts  <- c(cvb.lm.model$coefficients[1],      aavvb.lm.model$coefficients[1],     aavvc.lm.model$coefficients[1],     cvprob.lm.model$coefficients[1])
+slopes      <- c(cvb.lm.model$coefficients[2],      aavvb.lm.model$coefficients[2],     aavvc.lm.model$coefficients[2],     cvprob.lm.model$coefficients[2])
+rsq         <- c(summary(cvb.lm.model)$r.squared,   summary(aavvb.lm.model)$r.squared , summary(aavvc.lm.model)$r.squared,  summary(cvprob.lm.model)$r.squared)
 
-data.frame(name=c("Catch v Biomass", "AAV v Biomass", "AAV v Catch"), intercept=intercepts, slope=slopes, r.squared=rsq)
+data.frame(name=c("Catch v Biomass", "AAV v Biomass", "AAV v Catch", "Catch v Prob"), intercept=intercepts, slope=slopes, r.squared=rsq)
 
 
 

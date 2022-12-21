@@ -216,6 +216,8 @@ read.catch.data <- function(cr, sims, nyr){
         for(f in fnames){
             fname <- paste0(here::here("results/"), cr, "/sim_", s, "/year_", nyr, "/results/", f)
             dat.fname <- paste0(here::here("results/"), cr, "/sim_", s, "/year_", nyr, "/model/")
+
+            if(!file.exists(dat.fname)) next;
             
             waa <- read.data.files(dat.fname)$PWS_ASA.dat[[4]]
             waa <- waa[(42+1):(42+1+nyr-1),]
@@ -230,54 +232,28 @@ read.catch.data <- function(cr, sims, nyr){
 
 }
 
-accumulate.results.data <- function(nyr.sim, total.sims, seeds, trial, fnames, byage=FALSE, ncols=1){
+read.biomass.data <- function(cr, sims, nyr){
+    data <- data.frame(year=NA, biomass=NA, control.rule=NA, sim=NA) 
+    for(s in sims){
+        for(i in 1:nyr){
+            fname <- paste0(here::here("results/"), cr, "/sim_", s, "/year_", i, "/model/mcmc_out/PFRBiomass.csv")
+            
+            if(!file.exists(fname)) next;
 
-    if(length(byage) == 1){
-      byage <- rep(byage, length(fnames))
-    }
+            biomass.data <- read_csv(fname, col_names=FALSE, show_col_types = FALSE, col_select = last_col()) %>%
+                            rename(biomass=1) %>%
+                            mutate(
+                              year=as.character(2022+i),
+                              control.rule=cr,
+                              sim=s
+                            ) %>%
+                            relocate(c(year, biomass, control.rule, sim))
 
-    #d.vec <- ifelse(byage, 10, 1)
-
-    data.matrices <- vector("list", length(fnames))
-    for(i in 1:length(fnames)){
-        d <- ifelse(byage[i], 10, ncols)
-        data.matrices[[i]] <- array(NA, dim=c(nyr.sim, d, total.sims))
-    }
-
-    for(i in 1:length(fnames)){
-        for(s in 1:length(seeds)){
-            f <- paste0(here::here("results"), "/", trial, "/sim_", seeds[s], "/year_", nyr.sim, "/results/", fnames[i])
-            data.matrices[[i]][,,s] <- as.matrix(read.csv(f)[1:nyr.sim,-1]) 
+            data <- data %>% bind_rows(biomass.data)
         }
-        
     }
-
-    return(data.matrices)
-
+    return(data %>% na.omit())
 }
-
-accumulate.assessment.posteriors <- function(nyr.sim, total.sims, seeds, trial, fname="PFRBiomass.csv"){
-
-    f1 <- paste0(here::here("results"), "/", trial, "/sim_", seeds[1], "/year_1/model/mcmc_out/", fname)
-    n.samps <- nrow(read.csv(f1, header=FALSE))
-    #print(n.samps)
-    data.matrices <- vector("list", length(fname))
-    for(i in 1:length(fname)){
-        data.matrices[[i]] <- array(NA, dim=c(n.samps, nyr.sim, total.sims))
-    }
-
-    for(i in 1:nyr.sim){
-        for(s in 1:length(seeds)){
-            f <- paste0(here::here("results"), "/", trial, "/sim_", seeds[s], "/year_", i-1, "/model/mcmc_out/", fname)
-            print(f)
-            data <- read.csv(f, header=FALSE)
-            data.matrices[[1]][,i,s] <- as.matrix(data[(nrow(data)-n.samps+1):nrow(data), ncol(data)])
-        } 
-    }
-    
-    return(data.matrices)
-}
-
 
 # Function for simultaneously creating names of variables/elements within a list
 listN <- function(...){
