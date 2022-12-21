@@ -391,7 +391,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
             # simulations run to completion without random NUTS errors interrupting.
 
             desired.samples <- 1000   # this should be the number of iterations per chains * the number of chains (4)
-            max.duration <- 10        # max runtime duration for the NUTS sample in minutes
+            max.duration <- 20        # max runtime duration for the NUTS sample in minutes
             iters <- 1
 
             repeat{

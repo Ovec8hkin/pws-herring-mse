@@ -147,8 +147,8 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
         return(NULL)
     }
 
-    inits <- init.admb.params(reps)
-
+    inits <- init.admb.params(reps, seed=seed)
+    #print(inits)
     # ADMB command for running nuts
     # PWS_ASA -nox -noest -nohess -maxfn 0 -nuts -mcmc 2000 -warmup 500 -chain 1 -mcseed 8682524 -max_treedepth 12 -adapt_delta 0.8 -adapt_mass -mcpin init.pin
 
