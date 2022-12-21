@@ -2,6 +2,7 @@ source(paste0(here::here("R/operating_model/control_rules/"), "cr_threshold.R"))
 source(paste0(here::here("R/operating_model/control_rules/"), "cr_constant_f.R"))
 source(paste0(here::here("R/operating_model/control_rules/"), "cr_gradient.R"))
 source(paste0(here::here("R/operating_model/control_rules/"), "cr_agestructure.R"))
+source(paste0(here::here("R/plotting/plot_util_vals.R")))
 
 b.lim <- 19958
 b.tar <- 38555
@@ -21,6 +22,8 @@ catches.grad <- apply(fs.grad, 2, function(x) x*biomasses)
 gradient.plot <- plot.hcr.gradient(biomasses, rel.ssb.change, fs.grad, catches.grad, f.only=TRUE)
 gradient.plot$p+
      scale_fill_gradient(low="white", high="red", na.value = "transparent", name="Harvest Rate")+
+     scale_x_continuous("Pre-Fishery Biomass (mt)", breaks=seq(0, 100000, by=10000), labels=seq(0, 100, 10))+
+     coord_cartesian(xlim=c(0, 100000), expand=c(0, 0))+
      theme(
           legend.position="right",
           legend.direction="vertical",
@@ -34,6 +37,8 @@ catches.as <- apply(fs.as, 2, function(x) x*biomasses)
 as.plot <- plot.hcr.age.structure(biomasses, evenness, fs.as, catches.as, f.only=TRUE)
 as.plot$p+
      scale_fill_gradient(low="white", high="red", na.value = "transparent", name="Harvest Rate")+
+     scale_x_continuous("Pre-Fishery Biomass (mt)", breaks=seq(0, 100000, by=10000), labels=seq(0, 100, 10))+
+     coord_cartesian(xlim=c(0, 100000), expand=c(0, 0))+
      theme(
           legend.position="right",
           legend.direction="vertical",
@@ -51,14 +56,14 @@ fs.constant.00  <- apply(matrix(biomasses), 1, hcr.constant.f, f.rate=0.0)
 fs.big.fish     <- apply(matrix(biomasses), 1, hcr.threshold.linear)
 
 fs.df <- data.frame(biomass=biomasses, 
-                    default=fs.default, 
-                    low.thresh=fs.low.thresh,
-                    high.thresh=fs.high.thresh,
-                    high.f=fs.high.f,
-                    low.f=fs.low.f,
-                    three.step=fs.three.step,
+                    base=fs.default, 
+                    low.biomass=fs.low.thresh,
+                    high.biomass=fs.high.thresh,
+                    high.harvest=fs.high.f,
+                    low.harvest=fs.low.f,
+                    three.step.thresh=fs.three.step,
                     big.fish=fs.big.fish,
-                    costant.00=fs.constant.00)
+                    constant.f.00=fs.constant.00)
 
 catches.default     <- fs.default*biomass
 catches.logistic    <- fs.logistic*biomass
@@ -165,24 +170,28 @@ fs.df <- fs.df %>% pivot_longer(
 )
 
 fs.df$control.rule <- factor(fs.df$control.rule,
-                              levels=c("default", "low.f", "high.f", "low.thresh", "high.thresh", "three.step", "big.fish", "costant.00"),
-                              labels=c("Default", "Low F", "High F", "Low Threshold", "High Threshold", "Three Step Threshold", "Big Fish (Fish > 130g)", "No Fishing"))
+                              levels=c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "three.step.thresh", "big.fish", "constant.f.00"),
+                              labels=c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold", "Three Step Threshold", "Big Fish (Fish > 130g)", "No Fishing"))
 
 simple.cr.plot <- ggplot(fs.df, aes(x=biomass, y=harvest.rate, color=control.rule))+
      geom_line(size=1.5)+
      #geom_vline(aes(xintercept=20000))+
+     scale_color_manual(values=as.vector(hcr.colors))+
      scale_y_continuous(limits=c(-0.005, 0.70), expand=c(0, 0), breaks=c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7), labels=c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7))+
-     scale_x_continuous(breaks=seq(0, 100000, by=10000), labels=seq(0, 100, by=10), expand=c(0, 0))+
+     scale_x_continuous(breaks=seq(0, 100000, by=20000), labels=seq(0, 100, by=20), expand=c(0, 0))+
      facet_wrap(~control.rule)+
-     labs(x="Biomass (1000 mt)", y="Harvest Rate", color="Control Rule", title="Control Rules")+
+     labs(x="Biomass (1000 mt)", y="Harvest Rate", color="Control Rule", title="Simple Threshold Rules")+
      theme(
           legend.position="none",
           panel.grid.minor=element_blank(),
-          panel.spacing.x=unit(0.5, "cm")
+          panel.spacing.x=unit(0.5, "cm"),
+          plot.margin = unit(c(0, 30, 0, 0), "pt"),
      )
 
 grad.plot.sing <- gradient.plot$p+
      scale_fill_gradient(low="white", high="red", na.value = "transparent", name="Harvest Rate")+
+     scale_x_continuous("Pre-Fishery Biomass (1000 mt)", expand=c(0, 0), breaks=seq(0, 100000, 10000), labels=seq(0, 100, 10))+
+     labs(title="Gradient Rule")+
      theme(
           legend.position="right",
           legend.direction="vertical",
@@ -192,16 +201,32 @@ grad.plot.sing <- gradient.plot$p+
 
 as.plot.sing <- as.plot$p+
      scale_fill_gradient(low="white", high="red", na.value = "transparent", name="Harvest Rate")+
-     scale_x_continuous(expand=c(0, 0), name="", breaks=seq(0, 60000, 10000), labels=seq(0, 60, 10))+
+     scale_x_continuous(expand=c(0, 0), name="", breaks=seq(0, 100000, 10000), labels=seq(0, 100, 10))+
+     labs(title="Evenness Rule")+
      theme(
           legend.position="right",
           legend.direction="vertical",
           legend.key.width=unit(1.0, "cm"),
-          legend.key.height=unit(0.75, "cm"),
-          axis.ticks.x=element_blank(),
-          axis.text.x=element_blank()
+          legend.key.height=unit(0.75, "cm")
      )
 
 library(patchwork)
 
-(simple.cr.plot + (as.plot.sing / grad.plot.sing))
+(tag_facet(simple.cr.plot) + (as.plot.sing / grad.plot.sing)) +
+     plot_annotation(
+          title="Harvest Control Rules",
+          tag_levels="A"
+     )
+
+ggsave("/Users/jzahner/Desktop/hcrs.eps", device="eps", dpi=320)
+
+
+tag_facet <- function(p, open = "(", close = ")", tag_pool = 1:100, x = -Inf, y = Inf, 
+    hjust = -0.5, vjust = 2, fontface = 1, family = "", ...) {
+
+    gb <- ggplot_build(p)
+    lay <- gb$layout$layout
+    tags <- cbind(lay, label = paste0(open, tag_pool[lay$PANEL], close), x = x, y = y)
+    p + geom_text(data = tags, aes_string(x = "x", y = "y", label = "label"), ..., hjust = hjust, 
+        vjust = vjust, fontface = fontface, family = family, inherit.aes = FALSE)
+}
