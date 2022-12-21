@@ -1,7 +1,5 @@
 library(doParallel)
 library(tictoc)
-library(ggplot2)
-library(gridExtra)
 library(tidyr)
 
 source(file=paste0(here::here("R/"), "mse_loop.R"))
@@ -20,284 +18,137 @@ unregister_dopar <- function() {
   rm(list=ls(name=env), pos=env)
 }
 
+### THIS ACTUALLY CALLS THE MSE SIMULATION
+run.mse <- function(cr, cr.name, seed, start.year=1, hindcast=FALSE){
+    source(file=paste0(here::here("R/"), "mse_loop.R")) # source this here for parallel support
+    
+    sim.dir <- paste0(here::here("results"), "/", cr.name, "/sim_", seed, "/")
+    # TODO: include some code to not repeat runs when HCR and sim seed are repeated
+    if(!dir.exists(sim.dir)){ dir.create(sim.dir, recursive = TRUE) }
+    res <- run.simulation(cr, nyr.sim, sim.seed=seed, 
+                            write=sim.dir, start.year=start.year, hindcast=hindcast, cr.name=cr.name)
+    if(!res$success){
+        res <- run.simulation(cr, nyr.sim, sim.seed=seed, 
+                        write=sim.dir, start.year=res$last.year-1, hindcast=hindcast, cr.name=cr.name)
+    }
+    return(res)
+}
+
 #clean.results.dir()
 
-nyr.sim <- 10
-total.sims <- 2
+nyr.sim <- 35
+total.sims <- 7
 
-#seeds <- rep(0, total.sims)
-set.seed(1120)
+set.seed(1)
 seeds <- sample(1:1e4, size=total.sims)
+
+
+seeds <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 2512, 3169, 3709, 4288, 4716, 4775, 6460, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
 control.rules <- list(
-    base            = list(type="hcr.hockey.stick", lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
-    high.harvest    = list(type="hcr.hockey.stick", lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.30),
-    low.harvest     = list(type="hcr.hockey.stick", lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.15),
-    # lower.b0        = list(type="hcr.hockey.stick", lower.threshold=10000, upper.threshold=30000, min.harvest = 0.0, max.harvest=0.20),
-    # low.biomass     = list(type="hcr.hockey.stick", lower.threshold=10000, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
-    # higher.b0       = list(type="hcr.hockey.stick", lower.threshold=30000, upper.threshold=50000, min.harvest = 0.0, max.harvest=0.20),
-    # high.biomass    = list(type="hcr.hockey.stick", lower.threshold=30000, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
-    constant.f.00   = list(type="hcr.constant.f",   f.rate=0.0)
-    ##constant.escape = list(type="hcr.constant.escapement", threshold=30000, proportion=1.0)
+    base                = list(type="hcr.threshold.linear",      lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
+    high.harvest        = list(type="hcr.threshold.linear",      lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.40),
+    low.harvest         = list(type="hcr.threshold.linear",      lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.10),
+    low.biomass         = list(type="hcr.threshold.linear",      lower.threshold=10000, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
+    high.biomass        = list(type="hcr.threshold.linear",      lower.threshold=30000, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
+    evenness            = list(type="hcr.agestructure",          lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
+    gradient            = list(type="hcr.gradient",              lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20, p=0.5),
+    constant.f.00       = list(type="hcr.constant.f",            f.rate=0.0),
+    three.step.thresh   = list(type="hcr.threshold.multi", lower.threshold=19958, middle.threshold=38555, upper.threshold=60000, min.harvest=0.0, mid.harvest=0.20, max.harvest=0.5),
+    big.fish            = list(type="hcr.threshold.weight",                lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
+    none = list()
 )
 hcr.names <- names(control.rules)
 
-# cores <- parallel::detectCores()
-# cl <- makeCluster(cores[1]-1, type="FORK") #not to overload your computer
-# registerDoParallel(cl)
+# Create all combinations of control rules and simulation seeds
+cr.seed.combs <- expand.grid(seeds, hcr.names)
+cr.seed.combs <- cr.seed.combs %>% filter(Var2 != "none")
+total.sims <- nrow(cr.seed.combs)
 
-for(n in 1:length(hcr.names)){
-    tic()
-    # foreach(s=1:total.sims) %dopar% {
-    #     sim.dir <- paste0(here::here("results"), "/", hcr.names[n], "/sim_", seeds[s], "/")
-    #     if(!dir.exists(sim.dir)){ dir.create(sim.dir, recursive = TRUE) }
-    #     run.simulation(control.rules[[n]], nyr.sim, sim.seed=seeds[s], write=sim.dir)
-    #     return()
-    # }
-    for(s in 1:total.sims){
-        sim.dir <- paste0(here::here("results"), "/", hcr.names[n], "/sim_", seeds[s], "/")
-        # TODO: include some code to not repeat runs when HCR and sim seed are repeated
-        if(!dir.exists(sim.dir)){ dir.create(sim.dir, recursive = TRUE) }
-        res <- run.simulation(control.rules[[n]], nyr.sim, sim.seed=seeds[s], 
-                              write=sim.dir, start.year=1)
-        if(!res$success){
-            run.simulation(control.rules[[n]], nyr.sim, sim.seed=seeds[s], 
-                           write=sim.dir, start.year=1)
-        }
-    }
+# Set up parallel processing with doParallel
+cores <- parallel::detectCores()
+cl <- makeCluster(min(cores[1]-1, as.integer(total.sims/1)), outfile="")
+registerDoParallel(cl)
+
+foreach(i=1:total.sims) %dopar% {
+    seed <- cr.seed.combs[i, 1]
+    cr.name <- cr.seed.combs[i, 2]
+    cr <- control.rules[[cr.name]]
     
-    #return()
-    toc()
+    mse <- run.mse(cr, cr.name, seed, start.year=25)
+    
 }
 unregister_dopar()
-# stopCluster(cl)
+stopCluster(cl)
 
-# Accumulate catch data across all simulations for each of the four 
-# major herring fisheries. Sum together to get a total catch for the
-# entire fishery. Output is (nyr.sim * n.ages * total.sims)
-
-
-get.harvest.rate.sim.results <- function(nyr.sim, total.sims, seeds, trial){
-    harvest.rate <- accumulate.results.data(nyr.sim, total.sims, seeds, trial, c("harvest.csv"))
-    harvest.median <- as.vector(apply(harvest.rate[[1]], c(1, 2), median))
-    return(harvest.median)
+## Check for which control rule simulations failed
+get.year <- function(f){
+    return(as.numeric(str_split(f, "_")[[1]][2]))
 }
 
-get.harvest.results.all.trials <- function(nyr.sim, total.sims, seeds, trial){
-    sim.results <- data.frame(Year = 1:nyr.sim)
+results.dir <- "/Users/jzahner/Desktop/Projects/pwsh_mse/results/"
 
-    trials <- list.files(here::here("results"))
-    for(t in trials){
-       # trial.results <- get.harvest.rate.sim.results(nyr.sim, total.sims, seeds, t)
-        sim.results[,t] <- tryCatch({
-            get.harvest.rate.sim.results(nyr.sim, total.sims, seeds, t)
-        }, error = function(e){
-            rep(NA, nyr.sim)   
-        })
-    }
-
-    return(sim.results)
-
-}
-
-harvest.rate <- get.harvest.results.all.trials(nyr.sim, total.sims, seeds, "")
-harvest.rate
-get.biomass.sim.results <- function(nyr.sim, total.sims, seeds, trial){
-
-    prefish.spawn.biomass <- accumulate.results.data(nyr.sim, total.sims, seeds, trial, c("prefish_spawn_biomass.csv"), byage=TRUE)
-    prefish.biomass.quants <- apply(apply(prefish.spawn.biomass[[1]], c(1, 3), sum), 1, quantile, probs=c(0.025, 0.25, 0.5, 0.75, 0.975))
-
-    assessment.biomass <- accumulate.assessment.posteriors(nyr.sim, total.sims, seeds, trial)
-    assessment.biomass.quants <- apply(assessment.biomass[[1]], 2, quantile, probs=c(0.025, 0.25, 0.5, 0.75, 0.975))
-    annual.assessment.biomass <- apply(assessment.biomass[[1]], c(2,3), median)
-
-    prob.below.threshold <- compute.prob.below.threshold(annual.assessment.biomass, 19958)
-
-    data <- cbind(prefish.biomass.quants, assessment.biomass.quants)
-
-    sim.results <- data.frame(year=2021:(2021+nyr.sim-1), rep(trial, nyr.sim), rep(c("det", "ass"), each=nyr.sim), t(data), thresh.prob=prob.below.threshold)
-    names(sim.results) <- c("Year", "Trial", "Type", "Biomass2.5", "Biomass25", "Biomass50", "Biomass75", "Biomass97.5", "thresh.prob")
-
-    return(sim.results)
-}
-
-get.biomass.results.all.trials <- function(nyr.sim, total.sims, seeds){
-    trials <- list.files(here::here("results"))
-    sim.results <- data.frame()
-    for(tr in trials){
-        print(tr)
-        # trial.results <- get.biomass.sim.results(nyr.sim, total.sims, seeds, tr)
-        # sim.results <- rbind(sim.results, trial.results)
-        sim.results <- tryCatch({
-            trial.results <- get.biomass.sim.results(nyr.sim, total.sims, seeds, tr)
-            rbind(sim.results, trial.results)
-        }, error = function(e){
-            sim.results
-        })
-    }
-    return(sim.results)
-}
-
-sim.results <- get.biomass.results.all.trials(nyr.sim, total.sims, seeds) #get.biomass.sim.results(nyr.sim, total.sims, seeds, "test")
-
-#base.sim.results <- get.biomass.sim.results(nyr.sim, total.sims, seeds, "base")
-#no.harvest.sim.results <- get.biomass.sim.results(nyr.sim, total.sims, seeds, "no.harvest")
-
-sim.results$Trial <- factor(sim.results$Trial, 
-                            levels=c("base",    "high.harvest", "low.harvest",  "lower.b0", "low.biomass",      "higher.b0",    "high.biomass",     "constant.f.00"), 
-                            labels=c("Current", "High F",       "Low F",        "Low B0",   "Low Threshold",    "High B0",      "High Threshold",   "No Fishing"))
-
-ggplot(sim.results)+
-    geom_line(aes(x=Year, y=20000), color="blue", alpha=0.5)+
-    geom_line(aes(x=Year, y=40000), color="blue", alpha=0.5)+
-    geom_point(aes(x=Year, y=Biomass50, linetype=Type, color=Type))+
-    geom_line(aes(x=Year, y=Biomass50, linetype=Type, color=Type))+
-    geom_ribbon(aes(x=Year, ymin=Biomass25, ymax=Biomass75, linetype=Type, fill=Type), alpha=0.25)+
-    geom_ribbon(aes(x=Year, ymin=Biomass2.5, ymax=Biomass97.5, linetype=Type, fill=Type), alpha=0.125)+
-    geom_point(aes(x=Year, y=thresh.prob*60000), color="purple")+
-    geom_line(aes(x=Year, y=thresh.prob*60000), color="purple")+
-    scale_color_manual(values=c("red", "blue"))+
-    scale_y_continuous(
-        name = "Spawning Biomass (metric tons)",
-        limits = c(0, 120000),
-        sec.axis = sec_axis(trans=~.*1/80000, name="Probability below 20k metric tons")
-    )+xlab("Year")+ggtitle("Spawning Biomass Predictions")+facet_wrap(vars(Trial))
-
-ssb.traj.plot <- ggplot(sim.results)+
-                    #geom_ribbon(aes(x=Year, ymin=Biomass25, ymax=Biomass75, fill=Trial), alpha=0.25)+
-                    geom_point(aes(x=Year, y=Biomass50, color=Trial, linetype=Type), size=3)+
-                    geom_line(aes(x=Year, y=Biomass50, color=Trial, linetype=Type), size=1.5)+
-                    #geom_ribbon(aes(x=Year, ymin=Biomass2.5, ymax=Biomass97.5, fill=Trial), alpha=0.125)+
-                    ylim(0, 75000)+
-                    scale_color_manual(values=c("black", "red", "blue", "green", "purple", "orange", "darkslategray3", "coral4"))+
-                    scale_fill_manual(values=c("black", "red", "blue", "green", "purple", "orange", "darkslategray3", "coral4"))+
-                    labs(title="SSB Trajectories Under Candidate HCRs", 
-                         x="Year of Simulation", 
-                         y="Spawning Stock Biomass (mt)", 
-                         color="HCR")
-                    # theme(axis.text=element_text(size=18),
-                    #       axis.title=element_text(size=22),
-                    #       axis.title.y=element_text(margin=margin(r=20)),
-                    #       axis.title.x=element_text(margin=margin(t=20)),
-                    #       plot.title=element_text(size=32),
-                    #       legend.text=element_text(size=18),
-                    #       legend.key.size=unit(1.0, 'cm'),
-                    #       legend.title=element_text(size=22))
-ssb.traj.plot
-
-# Performance Metrics
-# compute.total.catch(total.catch)
-# compute.average.catch(total.catch)
-# compute.catch.aav(total.catch)
-# compute.prob.threshold.final(annual.spawning.biomass, 19958)
-# compute.number.of.closures(annual.spawning.biomass, 19958)
-# compute.final.biomass(prefish.spawn.biomass)
-
-
-
-
-
-
-compute.catch.performance.metrics <- function(nyr.sim, total.sims, seeds, trial, qs=c(0.025, 0.50, 0.975)){
-    catches <- accumulate.results.data(nyr.sim, total.sims, seeds, trial,
-                                   c("seine_catch.csv", "gillnet_catch.csv", "pound_catch.csv", "foodbait_catch.csv"), 
-                                   byage=TRUE)
-    total.catch <- Reduce("+", catches)
-
-    return(list(
-        total.catch     = quantile(compute.total.catch(total.catch), prob=qs),
-        average.catch   = quantile(compute.average.catch(total.catch), prob=qs),
-        catch.aav       = quantile(compute.catch.aav(total.catch),  prob=qs)
-    ))
-
-}
-
-catch.performance.metrics.all.trials <- function(nyr.sim, total.sims, seeds, qs=c(0.025, 0.50, 0.975)){
-    trials <- list.files(here::here("results"))
-    sim.results <- data.frame()
-
-    metric.names <- c("total.catch", "average.catch", "catch.aav")
-
-    for(m in metric.names){
-        for(t in trials){
-            perf.metric <- compute.catch.performance.metrics(nyr.sim, total.sims, seeds, t, qs)[[m]]
-            data <- c(m, t, perf.metric)
-            sim.results <- rbind(sim.results, data)
+failed.simulations <- list()
+for(cr in hcr.names){
+    if(cr == "none") next;
+    dir.name <- paste0(results.dir, cr)
+    if(dir.exists(dir.name)){
+        fs <- list.files(dir.name)
+        for(f in fs){
+            sim.name <- paste0(dir.name, "/", f)
+            years <- list.files(sim.name)
+            ys <- sort(apply(as.matrix(years), 1, get.year))
+            final.year <- ys[length(ys)]
+            if(final.year < nyr.sim){
+                failed.simulations[[length(failed.simulations)+1]] <- list(cr=cr, sim=as.numeric(str_split(f, "_")[[1]][2]), fail.year=final.year)
+            }
         }
     }
-    colnames(sim.results) <- c("Metric", "Trial", "2.5%", "50%", "97.5%")
+}
+print(failed.simulations)
 
-    return(sim.results)
+reruns <- list()
+for(f in failed.simulations){
+    if(f$sim %in% seeds){
+        print(paste0(f$cr, ": ", f$sim, " (", f$fail.year, ")"))
+        reruns[[length(reruns)+1]] <- f
+    } 
+}
+
+## Rerun failed simulations a second time to see if some will finish this time
+total.sims <- length(reruns)
+cores <- parallel::detectCores()
+cl <- makeCluster(min(cores[1]-1, as.integer(total.sims/1)), outfile="")
+registerDoParallel(cl)
+foreach(i=1:total.sims) %dopar% {
+    fs <- reruns[i][[1]]
+    cr.name <- fs$cr
+    cr <- control.rules[[cr.name]]
+    sim <- fs$sim
+    yr <- fs$fail.year
     
+    mse <- run.mse(cr, cr.name, sim, start.year=yr-1)
 }
-compute.catch.performance.metrics(nyr.sim, total.sims, seeds, "base")
-catch.performance.metrics.all.trials(nyr.sim, total.sims, seeds)
+unregister_dopar()
+stopCluster(cl)
 
 
+##################
+# total.sims <- length(seeds)
+# for(n in 1:length(hcr.names)){
+#     tic()
+#     foreach(s=1:total.sims) %dopar% {
 
+#         source(file=paste0(here::here("R/"), "mse_loop.R"))
 
-
-
-
-
-
-
-
-
-
-
-
-
-cumulative.catch <- function(catch.quantiles){
-    cum.catch <- array(dim=ncol(catch.quantiles))
-    cum.catch[1] <- 0
-    for(i in 2:ncol(catch.quantiles)){
-        cum.catch[i] <- cum.catch[i-1]+catch.quantiles["50%", i]
-    }
-    return(cum.catch)
-}
-
-cum.catch.df <- data.frame(Year=1:25)
-for(h in hcr.names){
-    catches <- accumulate.results.data(nyr.sim, total.sims, seeds, h,
-                                   c("seine_catch.csv", "gillnet_catch.csv", "pound_catch.csv", "foodbait_catch.csv"), 
-                                   byage=TRUE)
-    total.catch <- Reduce("+", catches)
-    catch.quantiles <- apply(apply(total.catch, c(1, 3), sum), 1, quantile, prob=c(0.025, 0.50, 0.975)) 
-    cum.catch.df[h] <- cumulative.catch(catch.quantiles)
-}
-
-# catches <- accumulate.results.data(nyr.sim, total.sims, seeds, "constant.f.00",
-#                                    c("seine_catch.csv", "gillnet_catch.csv", "pound_catch.csv", "foodbait_catch.csv"), 
-#                                    byage=TRUE)
-# total.catch <- Reduce("+", catches)
-# catch.quantiles <- apply(apply(total.catch, c(1, 3), sum), 1, quantile, prob=c(0.025, 0.50, 0.975)) 
-
-# low.biomass.cum.catch <- cumulative.catch(catch.quantiles)
-# lower.b0.cum.catch <- cumulative.catch(catch.quantiles)
-# low.harvest.cum.catch <- cumulative.catch(catch.quantiles)
-# high.harvest.cum.catch <- cumulative.catch(catch.quantiles)
-# base.cum.catch <- cumulative.catch(catch.quantiles)
-# constant.f.00.cum.catch <- cumulative.catch(catch.quantiles)
-
-# cum.catch.df <- data.frame(base=t(t(base.cum.catch)), 
-#                            low.harvest=t(t(low.harvest.cum.catch)),
-#                            high.harvest=t(t(high.harvest.cum.catch)),
-#                            constant.f.00=t(t(constant.f.00.cum.catch)),
-#                            low.b0=t(t(lower.b0.cum.catch)),
-#                            low.biomass=t(t(low.biomass.cum.catch)),
-#                            Year=1:25) %>% pivot_longer(!Year, names_to="control.rule", values_to="cum.catch")
-
-cum.catch.df$control.rule <- factor(cum.catch.df$control.rule, levels=c("base", "high.harvest", "low.harvest", "low.b0", "low.biomass", "constant.f.00"), labels=c("Current", "High F", "Low F", "Low B0", "Low Threshold", "No Fishing"))
-cum.catch.df <- as.data.frame(cum.catch.df)
-
-cum.catch.plot <- ggplot(cum.catch.df)+
-                    geom_point(aes(x=Year, y=cum.catch, color=control.rule), size=2)+
-                    geom_line(aes(x=Year, y=cum.catch, color=control.rule), size=1.5)+
-                    ylim(0, 350)+
-                    scale_color_manual(values=colors)+
-                    labs(title="Cumulative Catch Under Candidate HCRs", 
-                         x="Year of Simulation", 
-                         y="Cumulative Catch (mt)", 
-                         color="HCR")
-
-grid.arrange(ssb.traj.plot, cum.catch.plot, ncol=2)
+#         sim.dir <- paste0(here::here("results"), "/", hcr.names[n], "/sim_", seeds[s], "/")
+#         # TODO: include some code to not repeat runs when HCR and sim seed are repeated
+#         if(!dir.exists(sim.dir)){ dir.create(sim.dir, recursive = TRUE) }
+#         res <- run.simulation(control.rules[[n]], nyr.sim, sim.seed=seeds[s], 
+#                               write=sim.dir, start.year=1, hindcast = FALSE, cr.name=hcr.names[n])
+#         if(!res$success){
+#             run.simulation(control.rules[[n]], nyr.sim, sim.seed=seeds[s], 
+#                            write=sim.dir, start.year=res$last.year-1, hindcast=FALSE, cr.name=hcr.names[n])
+#         }
+#     }
+#     toc()
+# }
