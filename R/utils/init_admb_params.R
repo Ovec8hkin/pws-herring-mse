@@ -1,5 +1,7 @@
-init.admb.params <- function(reps){
-    
+init.admb.params <- function(reps, seed){
+
+    set.seed(seed)
+
     pars <- r4ss::read.admbFit("PWS_ASA")
     inits <- list()
     for(j in 1:reps){
