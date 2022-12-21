@@ -49,8 +49,8 @@ plot.hcr.age.structure <- function(biomasses, evenness, fs, catches, f.only=FALS
     
     fs.plot <- ggplot(cr.df, aes(x=biomass, y=evenness, fill=fs, z=fs))+
         geom_raster(alpha=0.9)+
-        geom_contour(breaks=c(0.01, 0.1, 0.20), color="black", size=1)+
-        geom_label_contour(breaks=c(0.01, 0.1, 0.20), skip=0, label.placer=label_placer_fraction(0.5))+
+        geom_contour(breaks=c(0.1, 0.20), color="black", size=1)+
+        geom_label_contour(breaks=c(0.1, 0.20), skip=0, label.placer=label_placer_fraction(0.5))+
         scale_fill_gradient(low="white", high="red", na.value = "transparent", name="Exploitation Rate")+
         scale_y_continuous(expand=c(0, 0), name="Age Structure Evenness Index")+
         scale_x_continuous(expand=c(0, 0), name="Pre-Fishery Biomass (mt)", breaks=seq(0, 60000, 10000), labels=seq(0, 60, 10))+

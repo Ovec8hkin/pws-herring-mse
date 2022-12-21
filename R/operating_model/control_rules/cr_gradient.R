@@ -24,8 +24,9 @@ plot.hcr.gradient <- function(biomasses, rel.biomasses, fs, catches, f.only=FALS
 
     fs.plot <- ggplot(cr.df, aes(x=biomass, y=ssb.change, fill=fs, z=fs))+
         geom_raster(alpha=0.9)+
-        geom_contour(breaks=c(0.01, 0.1, 0.20, 0.30, 0.40), color="black", size=1)+
-        geom_label_contour(breaks=c(0.01, 0.1, 0.20, 0.30, 0.40), skip=0, label.placer=label_placer_fraction(0.5))+
+        # geom_vline(aes(xintercept=20000), size=1)+
+        geom_contour(breaks=c(0.1, 0.20, 0.30, 0.40), color="black", size=1)+
+        geom_label_contour(breaks=c(0.1, 0.20, 0.30, 0.40), skip=0, label.placer=label_placer_fraction(0.5))+
         scale_fill_gradient(low="white", high="red", na.value = "transparent", name="Exploitation Rate")+
         scale_y_continuous(expand=c(0, 0), name="3-year Biomass Gradient")+
         scale_x_continuous(expand=c(0, 0), name="Pre-Fishery Biomass (mt)", breaks=seq(0, 60000, 10000), labels=seq(0, 60, 10))+
