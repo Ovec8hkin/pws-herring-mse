@@ -199,7 +199,7 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
     write.csv(mon, file="mcmc_out/table_par_posterior_summary.csv")
 
     # Write all MCMC samples of the parameters
-    mcmc.samps <- data.frame(matrix(fit.1$samples, nrow=dim(fit.1$samples)[3], byrow=TRUE))
+    mcmc.samps <- data.frame(matrix(fit.1$samples, ncol=dim(fit.1$samples)[3], byrow=FALSE))
     names(mcmc.samps) <- fit.1$par_names
     write.csv(mcmc.samps, file="mcmc_out/iterations.csv", row.names=FALSE)
 
