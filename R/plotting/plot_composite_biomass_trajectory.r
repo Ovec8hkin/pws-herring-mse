@@ -18,7 +18,7 @@ hcr.names <- c("base", "high.harvest", "low.harvest", "high.biomass", "low.bioma
 year.0.fname <- paste0(here::here("results/base/sim_197/year_0/model/mcmc_out/"), "PFRBiomass.csv")
 curr.biomass.data <- read_csv(year.0.fname, col_names=as.character(years)) %>% pivot_longer(everything(), names_to="year", values_to="biomass")
 curr <- data.frame(
-    year=rep(pull(select(curr.biomass.data, "year")), length(hcr.names)), 
+    year=as.numeric(rep(pull(select(curr.biomass.data, "year")), length(hcr.names))), 
     biomass=rep(pull(select(curr.biomass.data, "biomass")), length(hcr.names)), 
     control.rule=rep(hcr.names, each=length(pull(curr.biomass.data, "biomass"))),
     sim=0
@@ -27,9 +27,10 @@ curr <- data.frame(
 biomass.traj.raw <- data.frame(year=NA, biomass=NA, control.rule=NA, sim=NA) 
 for(cr in hcr.names){
     print(cr)
-    biomass.traj.raw <- biomass.traj.raw %>% bind_rows(read.biomass.data(cr, sims, nyr))
+    biomass.traj.raw <- biomass.traj.raw %>% bind_rows(read.true.biomass.data(cr, seeds, nyr))
 }
-            
+biomass.traj.raw
+
 biomass.traj <- biomass.traj.raw %>% na.omit() %>% 
                     bind_rows(curr) %>%
                     mutate(control.rule=recode_factor(control.rule, !!!hcr.levels)) %>%
