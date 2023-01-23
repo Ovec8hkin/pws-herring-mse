@@ -55,7 +55,8 @@ for(cr in hcr.names){
     print(cr)
     cr.dat <- read.catch.data(cr, seeds, nyr)
     catch.data <- catch.data %>% bind_rows(cr.dat)
-    biomass.dat <- read.biomass.data(cr, seeds, 25)
+    #biomass.dat <- read.biomass.data(cr, seeds, 25)
+    biomass.dat <- read.true.biomass.data(cr, seeds, 25)
     bio.traj.df <- bio.traj.df %>% bind_rows(biomass.dat)
 }
 
@@ -231,12 +232,12 @@ ggplot(perf.data) +
             xmin = lower,
             xmax = upper,
             color = control.rule
-        )) +
+        ), point_size=6) +
         geom_vline(
             data = perf.data %>% filter(control.rule == "Default" & .width == 0.5),
             aes(xintercept=median)) +
         scale_color_manual(values=as.vector(hcr.colors)) +
-        scale_y_discrete(limits=rev) +
+        scale_y_discrete(limits=rev, labels=function(x) str_wrap(x, width=15)) +
         facet_wrap_custom(~metric.long, ncol=3, scale="free_x", shrink=TRUE, scale_overrides = list(
             scale_override(1, scale_x_continuous(breaks=seq(0, 1000000, 100000),   labels=seq(0, 1000, 100),  limits = c(0, 1000000))),
             scale_override(2, scale_x_continuous(breaks=seq(0, 50000,  5000),     labels=seq(0, 50, 5),     limits = c(0, 50000))),
@@ -253,7 +254,11 @@ ggplot(perf.data) +
         labs(x="", y="", title="Performance Metric Summaries")+ 
         theme(
             panel.grid.minor.x = element_blank(),
-            legend.position = "none"
+            legend.position = "none",
+            plot.title = element_blank(),
+            strip.text = element_text(size=16),
+            axis.text.x = element_text(size=14),
+            axis.text.y = element_text(size=14)
         )
 
 ggsave("/Users/jzahner/Desktop/plot.png")
@@ -336,5 +341,8 @@ utility.df <- as_tibble(utility.matrix) %>%
                     lower.total.utility  = total.utility(lower),
                     upper.total.utility  = total.utility(upper)
                 ) %>%
-                arrange(median.total.utility) %>%
+                mutate(
+                  rel.util = median.total.utility/max(median.total.utility)
+                ) %>%
+                arrange(desc(rel.util)) %>%
                 print(n=10)
