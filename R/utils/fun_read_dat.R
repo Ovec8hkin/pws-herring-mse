@@ -255,6 +255,44 @@ read.biomass.data <- function(cr, sims, nyr){
     return(data %>% na.omit())
 }
 
+read.true.biomass.data <- function(cr, sims, nyr){
+    data <- data.frame(year=NA, biomass=NA, control.rule=NA, sim=NA)
+    for(s in sims){
+
+        sim.name <- paste0(here::here("results/"), cr, "/sim_", s)
+        years <- list.files(sim.name)
+        ys <- sort(apply(as.matrix(years), 1, get.year))
+        final.year <- ys[length(ys)]
+
+        final.year <- min(final.year, nyr)
+
+        fname <- paste0(sim.name, "/year_", final.year, "/results/prefish_spawn_biomass.csv")
+        if(!file.exists(fname)) next;
+
+        biomass.data <- read_csv(fname, col_names=TRUE, show_col_types = FALSE) %>% 
+                          slice(1:nyr) %>%
+                          select(-c(1)) %>%
+                          mutate(
+                            year=2022+row_number(),
+                            control.rule=as.character(cr),
+                            sim=s
+                          ) %>%
+                          rowwise() %>%
+                          mutate(
+                            biomass = sum(c(`0`, `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`))
+                          ) %>%
+                          select(year, biomass, control.rule, sim)
+        
+        data <- data %>% bind_rows(biomass.data)
+    }
+    return(data %>% na.omit())
+}
+
+get.year <- function(f){
+    return(as.numeric(str_split(f, "_")[[1]][2]))
+}
+
+
 # Function for simultaneously creating names of variables/elements within a list
 listN <- function(...){
   anonList <- list(...)
