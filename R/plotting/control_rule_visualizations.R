@@ -171,43 +171,74 @@ fs.df <- fs.df %>% pivot_longer(
 
 fs.df$control.rule <- factor(fs.df$control.rule,
                               levels=c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "three.step.thresh", "big.fish", "constant.f.00"),
-                              labels=c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold", "Three Step Threshold", "Big Fish (Fish > 130g)", "No Fishing"))
+                              labels=c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold", "Three Step Threshold", "Big Fish Only", "No Fishing"))
 
-simple.cr.plot <- ggplot(fs.df, aes(x=biomass, y=harvest.rate, color=control.rule))+
+
+fs.names <- data.frame(control.rule=unique(fs.df$control.rule), cr.name=c("Default", "Low Threshold", "High Threshold", "High Harvest", "Low Harvest", "Three Step\nThreshold", "Big Fish Only\n(>110g)", "No Fishing"))
+
+ggplot(fs.df, aes(x=biomass, y=harvest.rate, color=control.rule, fontface="bold"), x=3000, y=0.65)+
      geom_line(size=1.5)+
+     geom_text(data=fs.names, aes(x=3000, y=0.65, label=cr.name), hjust=0, vjust=0.75, size=10)+
      #geom_vline(aes(xintercept=20000))+
-     scale_color_manual(values=as.vector(hcr.colors))+
-     scale_y_continuous(limits=c(-0.005, 0.70), expand=c(0, 0), breaks=c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7), labels=c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7))+
-     scale_x_continuous(breaks=seq(0, 100000, by=20000), labels=seq(0, 100, by=20), expand=c(0, 0))+
-     facet_wrap(~control.rule)+
+     scale_color_manual(values=hcr.colors.named)+
+     scale_y_continuous(limits=c(-0.005, 0.70), expand=c(0, 0), breaks=c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6), labels=c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6))+
+     scale_x_continuous(breaks=seq(0, 70000, by=20000), labels=seq(0, 70, by=20), expand=c(0, 0))+
+     coord_cartesian(xlim=c(0, 80000)) + 
+     facet_wrap(~control.rule, nrow=2, scales="free_x")+
      labs(x="Biomass (1000 mt)", y="Harvest Rate", color="Control Rule", title="Simple Threshold Rules")+
+     theme_minimal()+
      theme(
           legend.position="none",
+          strip.text = element_blank(),
           panel.grid.minor=element_blank(),
           panel.spacing.x=unit(0.5, "cm"),
+          panel.spacing.y=unit(1, "cm"),
           plot.margin = unit(c(0, 30, 0, 0), "pt"),
+          axis.title.x = element_text(face="bold", size=20),
+          axis.text.x = element_text(size=16),
+          axis.text.y = element_text(size=16),
+          axis.title.y = element_text(face="bold", size=20),
+          plot.title = element_blank()
      )
 
 grad.plot.sing <- gradient.plot$p+
      scale_fill_gradient(low="white", high="red", na.value = "transparent", name="Harvest Rate")+
-     scale_x_continuous("Pre-Fishery Biomass (1000 mt)", expand=c(0, 0), breaks=seq(0, 100000, 10000), labels=seq(0, 100, 10))+
+     geom_label_contour(breaks=c(0.1, 0.20, 0.30, 0.40), skip=0, label.placer=label_placer_fraction(0.5), size=8, label.padding = unit(5, "pt"))+
+     scale_x_continuous("Pre-Fishery Biomass (1000 mt)", expand=c(0, 0), breaks=seq(0, 80000, 10000), labels=seq(0, 80, 10))+
+     coord_cartesian(xlim=c(0, 80000))+
      labs(title="Gradient Rule")+
      theme(
           legend.position="right",
           legend.direction="vertical",
           legend.key.width=unit(1.0, "cm"),
-          legend.key.height=unit(0.75, "cm")
+          legend.key.height=unit(1.0, "cm"),
+          legend.text = element_text(size=14),
+          legend.title = element_text(size=16),
+          axis.text = element_text(size=14),
+          axis.title = element_text(size=18, face="bold"),
+          plot.title = element_blank(),
+          axis.title.x = element_text(margin=margin(15, 0, 0, 0)),
+          axis.title.y = element_text(margin=margin(0, 15, 0, 0))
      )
 
 as.plot.sing <- as.plot$p+
-     scale_fill_gradient(low="white", high="red", na.value = "transparent", name="Harvest Rate")+
-     scale_x_continuous(expand=c(0, 0), name="", breaks=seq(0, 100000, 10000), labels=seq(0, 100, 10))+
+     geom_label_contour(breaks=c(0.1, 0.20), skip=0, label.placer=label_placer_fraction(0.5), size=8, label.padding = unit(5, "pt"))+
+     scale_x_continuous(expand=c(0, 0), name="", breaks=seq(0, 80000, 10000), labels=seq(0, 80, 10))+
+     scale_fill_gradient(low="white", high="red", limits=c(0.0, 0.5), name="Harvest Rate")+
+     coord_cartesian(xlim=c(0, 80000))+
      labs(title="Evenness Rule")+
      theme(
           legend.position="right",
           legend.direction="vertical",
           legend.key.width=unit(1.0, "cm"),
-          legend.key.height=unit(0.75, "cm")
+          legend.key.height=unit(1.0, "cm"),
+          legend.text = element_text(size=14),
+          legend.title = element_text(size=16),
+          axis.text = element_text(size=14),
+          axis.title = element_text(size=18, face="bold"),
+          plot.title = element_blank(),
+          axis.title.x = element_text(margin=margin(15, 0, 0, 0)),
+          axis.title.y = element_text(margin=margin(0, 15, 0, 0))
      )
 
 library(patchwork)
