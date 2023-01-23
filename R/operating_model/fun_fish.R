@@ -24,6 +24,7 @@ fun_fish <- function(target.harvest.rule, ssb.true, naa.true, weight.at.age, fis
     inpound.alloc <- 0.142
     
     alloc <- c(sacroe.seine.alloc, sacroe.gillnet.alloc, inpound.alloc, foodbait.alloc)
+    alloc <- alloc/sum(alloc) # need to rescale the fisheries allocation so that they sum to 100% of the HR
     
     # Total projected yield
     #yield <- target.harvest.rule*ssb.true
