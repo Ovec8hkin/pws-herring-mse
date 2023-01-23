@@ -33,3 +33,16 @@ hcr.colors <- c(
     big.fish            = "#F700FF",
     constant.f.00       = "#B3B3B3" 
 )
+
+hcr.colors.named <- c(
+    "Default"               = "#000000",
+    "Low Harvest"           = "#0000ff",
+    "High Harvest"          = "#ff0000",
+    "Low Threshold"         = "#008C00",
+    "High Threshold"        = "#9600CC",
+    "Evenness"              = "#FF6600",
+    "Gradient"              = "#D9B800",
+    "Three Step Threshold"  = "#00D4D4",
+    "Big Fish Only"         = "#F700FF",
+    "No Fishing"            = "#B3B3B3" 
+)
