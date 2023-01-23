@@ -15,7 +15,6 @@ source(file=paste0(here::here("R/utils/",             "hindcast.R")))
 files.sources = list.files(here::here("R/operating_model/control_rules"), full.names=TRUE)
 sapply(files.sources, source)
 
-#source(file=paste0(here::here("R/utils/"), "fun_data_reader.R"))
 library(tidyverse)
 
 #nyr.sim <- 10
@@ -85,6 +84,19 @@ set.initial.conditions <- function(dir, pop_dyn, mat, waa, sim.seed, start.year=
   # pop_dyn$prefish.spawn.biomass[1, ] <- mat*as.numeric(init.nya)*waa
   
   return(pop_dyn)
+}
+
+# Reads in iterations.csv and takes a random samples
+# of the parameter vector. Used for getting a random
+# set of parameter estimates in order to have full
+# level of uncertainty.
+set.parameters <- function(dir, sim.seed){
+  set.seed(sim.seed)
+  iter.data <- read_csv(paste0(dir, "/year_0/model/mcmc_out/iterations.csv"), show_col_types=FALSE) %>% 
+                na.omit() %>%
+                select(!matches("[0-9]]$")) %>%
+                slice_sample(n=1)
+  return(as.list(iter.data))
 }
 
 # Computed median weight-at-age from raw WAA data
@@ -225,6 +237,8 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
 
     # Read in other parameters
     params <- read.par.file("~/Desktop/Projects/basa/model/PWS_ASA.par")
+    par.samples <- set.parameters(write, sim.seed)
+    params[names(par.samples)] <- par.samples
     params$female.spawners  <- tail(dat.files$PWS_ASA.dat$perc.female, 1)
     params$pk               <- dat.files$PWS_ASA.dat$pk
     params$waa              <- true.waa
