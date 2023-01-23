@@ -44,7 +44,7 @@ OS <- "MAC"
 
 # BE SURE TO CHECK YOUR DIRECTORY
 
-run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.duration=5, n.chains=4){
+run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.duration=5, n.chains=4, reduce.size=TRUE){
 
     setwd(model.dir)
 
@@ -216,6 +216,14 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
                           time.elapsed=end.time-start.time)
     write.table(sum.dia, file="mcmc_out/table_convergence_diagnostics.csv", sep=",", row.names=FALSE)
     saveRDS(fit.1, file="mcmc_out/NUTS_fit.RDS")
+
+    if(reduce.size){
+        files.to.keep <- c("Age3.csv", "EGG.csv", "HYD_ADFG.csv", "HYD_PWSSC.csv", "juv_schools.csv", "MDM.csv", "SpAC.csv", "SeAC.csv", "Num_at_age.csv", "PFRBiomass.csv")
+        mcmc.out.files <- list.files("mcmc_out/")
+        files.to.delete <- setdiff(mcmc.out.files, files.to.keep)
+        files.to.delete <- paste0(model.dir, "/mcmc_out/", files.to.delete)
+        lapply(files.to.delete, file.remove)
+    }
 
     return(
       list(
