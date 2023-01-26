@@ -178,15 +178,15 @@ generate.recruitment.deviates <- function(nyr.sim, sim.seed){
   devs <- rep(NA, nyr.sim)
   sigmas <- rep(NA, nyr.sim)
 
-  devs[1:5] <- rnorm(5, -0.34, 0.904)
-  sigmas[1:5] <- rep(0.904, 5)
+  devs[1:5] <- rnorm(5, -2.57, 1.00)
+  sigmas[1:5] <- rep(1.00, 5)
 
   high.regime <- FALSE
   for(y in 1:(nyr.sim-5)){
     if(y %% max.regime.length == 0) high.regime <- !high.regime
 
-    dev <- ifelse(high.regime == 1, rnorm(1, -0.34, 0.904), rnorm(1, 0.829, 1.404))
-    sig <- ifelse(high.regime == 1, 0.904, 1.404)
+    dev <- ifelse(high.regime == 1, rnorm(1, -2.57, 1.00), rnorm(1, -1.14, 1.20))
+    sig <- ifelse(high.regime == 1, 1.00, 1.20)
 
     devs[y+5] <- dev
     sigmas[y+5] <- sig
