@@ -65,101 +65,98 @@ fs.df <- data.frame(biomass=biomasses,
                     big.fish=fs.big.fish,
                     constant.f.00=fs.constant.00)
 
-catches.default     <- fs.default*biomass
-catches.logistic    <- fs.logistic*biomass
-catches.exponential <- fs.exponential*biomass
-catches.logarithmic <- fs.logarithmic*biomass
-catches.low.thresh  <- fs.low.thresh*biomass
-catches.high.thresh <- fs.high.thresh*biomass
-catches.high.f      <- fs.high.f*biomass
-catches.low.f       <- fs.low.f*biomass
+# catches.default     <- fs.default*biomass
+# catches.logistic    <- fs.logistic*biomass
+# catches.exponential <- fs.exponential*biomass
+# catches.logarithmic <- fs.logarithmic*biomass
+# catches.low.thresh  <- fs.low.thresh*biomass
+# catches.high.thresh <- fs.high.thresh*biomass
+# catches.high.f      <- fs.high.f*biomass
+# catches.low.f       <- fs.low.f*biomass
 
-par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
-plot.control.rule(fs.default, catches.default, b.lim=19958, b.tar=38555, name="Default")
-mtext("Default", side = 3, line = -3, outer=TRUE, cex=2.25)
+# par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
+# plot.control.rule(fs.default, catches.default, b.lim=19958, b.tar=38555, name="Default")
+# mtext("Default", side = 3, line = -3, outer=TRUE, cex=2.25)
 
-par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
-plot.control.rule(fs.logistic, catches.logistic, b.lim=19958, b.tar=38555, name="Default")
-mtext("Logistic", side = 3, line = -3, outer=TRUE, cex=2.25)
+# par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
+# plot.control.rule(fs.logistic, catches.logistic, b.lim=19958, b.tar=38555, name="Default")
+# mtext("Logistic", side = 3, line = -3, outer=TRUE, cex=2.25)
 
-par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
-plot.control.rule(fs.exponential, catches.exponential, b.lim=19958, b.tar=38555, name="Default")
-mtext("Exponential", side = 3, line = -3, outer=TRUE, cex=2.25)
+# par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
+# plot.control.rule(fs.exponential, catches.exponential, b.lim=19958, b.tar=38555, name="Default")
+# mtext("Exponential", side = 3, line = -3, outer=TRUE, cex=2.25)
 
-par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
-plot.control.rule(fs.logarithmic, catches.logarithmic, b.lim=19958, b.tar=38555, name="Default")
-mtext("Logarithmic", side = 3, line = -3, outer=TRUE, cex=2.25)
+# par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
+# plot.control.rule(fs.logarithmic, catches.logarithmic, b.lim=19958, b.tar=38555, name="Default")
+# mtext("Logarithmic", side = 3, line = -3, outer=TRUE, cex=2.25)
 
-par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
-plot.control.rule(fs.low.thresh, catches.low.thresh, b.lim=10000, b.tar=38555, name="Default")
-mtext("Low Threshold", side = 3, line = -3, outer=TRUE, cex=2.25)
+# par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
+# plot.control.rule(fs.low.thresh, catches.low.thresh, b.lim=10000, b.tar=38555, name="Default")
+# mtext("Low Threshold", side = 3, line = -3, outer=TRUE, cex=2.25)
 
-par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
-plot.control.rule(fs.high.thresh, catches.high.thresh, b.lim=30000, b.tar=38555, name="Default")
-mtext("High Threshold", side = 3, line = -3, outer=TRUE, cex=2.25)
+# par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
+# plot.control.rule(fs.high.thresh, catches.high.thresh, b.lim=30000, b.tar=38555, name="Default")
+# mtext("High Threshold", side = 3, line = -3, outer=TRUE, cex=2.25)
 
-par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
-plot.control.rule(fs.high.f, catches.high.f, b.lim=19958, b.tar=38555, name="Default")
-mtext("High F", side = 3, line = -3, outer=TRUE, cex=2.25)
+# par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
+# plot.control.rule(fs.high.f, catches.high.f, b.lim=19958, b.tar=38555, name="Default")
+# mtext("High F", side = 3, line = -3, outer=TRUE, cex=2.25)
 
-par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
-plot.control.rule(fs.low.f, catches.low.f, b.lim=19958, b.tar=38555, name="Default")
-mtext("Low F", side = 3, line = -3, outer=TRUE, cex=2.25)
+# par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
+# plot.control.rule(fs.low.f, catches.low.f, b.lim=19958, b.tar=38555, name="Default")
+# mtext("Low F", side = 3, line = -3, outer=TRUE, cex=2.25)
 
+# #e <- compute.f.thresh(evenness, b.lim=0.4, b.tar=0.8, f.max=0.5)
+# e <- apply(matrix(evenness), 1, compute.f.thresh, b.lim=0.4, b.tar=0.8, f.max=0.5, scaling="linear")+0.5
 
+# par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
+# plot(biomass, fs.default, type="l", ylim=c(0, 1.0), col="black", lwd=6,
+#          ylab="Exploitation Rate (µ)", xlab="Biomass (1000 mt)",
+#          yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.75)
+# abline(v=b.lim, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+# abline(v=b.tar, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+# text(x=b.lim-8500, y=0.5, expression(bold("B"["limit"])), cex=2.00)
+# text(x=b.tar+8500, y=0.5, expression(bold("B"["target"])), cex=2.00)
+# #title(main=name, cex.main=2.25)
+# axis(1, at=seq(0, 60000, 10000), labels=seq(0, 60, 10), cex.axis=1.75)
+# axis(2, at=seq(0, 1.0, 0.1), labels=seq(0, 1.0, 0.1), cex.axis=1.75)
 
-#e <- compute.f.thresh(evenness, b.lim=0.4, b.tar=0.8, f.max=0.5)
-e <- apply(matrix(evenness), 1, compute.f.thresh, b.lim=0.4, b.tar=0.8, f.max=0.5, scaling="linear")+0.5
+# plot(evenness, e, type="l", ylim=c(0, 1.0), col="black", lwd=6,
+#          ylab="Evenness Index", xlab="Shannon-Weiner Evenness (J')",
+#          yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.75)
+# abline(v=0.4, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+# abline(v=0.8, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+# text(x=0.4-0.1, y=0.8, expression(bold("J"["limit"])), cex=2.00)
+# text(x=0.8+0.1, y=0.8, expression(bold("J"["target"])), cex=2.00)
+# #title(main=name, cex.main=2.25)
+# axis(1, at=seq(0, 1.0, 0.1), labels=seq(0, 1.0, 0.1), cex.axis=1.75)
+# axis(2, at=seq(0, 1.0, 0.1), labels=seq(0, 1.0, 0.1), cex.axis=1.75)
+# mtext("Age Structure CR Components", side = 3, line = -3, outer=TRUE, cex=2.25)
 
-par(mfrow=c(1, 2), mar=c(5,6,4,2.5)+0.1)
-plot(biomass, fs.default, type="l", ylim=c(0, 1.0), col="black", lwd=6,
-         ylab="Exploitation Rate (µ)", xlab="Biomass (1000 mt)",
-         yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.75)
-abline(v=b.lim, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
-abline(v=b.tar, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
-text(x=b.lim-8500, y=0.5, expression(bold("B"["limit"])), cex=2.00)
-text(x=b.tar+8500, y=0.5, expression(bold("B"["target"])), cex=2.00)
-#title(main=name, cex.main=2.25)
-axis(1, at=seq(0, 60000, 10000), labels=seq(0, 60, 10), cex.axis=1.75)
-axis(2, at=seq(0, 1.0, 0.1), labels=seq(0, 1.0, 0.1), cex.axis=1.75)
+# plot.control.rule <- function(exp.rates, catches, b.lim, b.tar, name){
+#     plot(biomass, exp.rates, type="l", ylim=c(0, 1.0), col="black", lwd=6,
+#          ylab="Exploitation Rate (µ)", xlab="Biomass (1000 mt)",
+#          yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.75)
+#     abline(v=b.lim, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+#     abline(v=b.tar, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+#     text(x=b.lim-8500, y=0.5, expression(bold("B"["limit"])), cex=2.00)
+#     text(x=b.tar+8500, y=0.5, expression(bold("B"["target"])), cex=2.00)
+#     #title(main=name, cex.main=2.25)
+#     axis(1, at=seq(0, 60000, 10000), labels=seq(0, 60, 10), cex.axis=1.75)
+#     axis(2, at=seq(0, 1.0, 0.1), labels=seq(0, 1.0, 0.1), cex.axis=1.75)
 
-plot(evenness, e, type="l", ylim=c(0, 1.0), col="black", lwd=6,
-         ylab="Evenness Index", xlab="Shannon-Weiner Evenness (J')",
-         yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.75)
-abline(v=0.4, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
-abline(v=0.8, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
-text(x=0.4-0.1, y=0.8, expression(bold("J"["limit"])), cex=2.00)
-text(x=0.8+0.1, y=0.8, expression(bold("J"["target"])), cex=2.00)
-#title(main=name, cex.main=2.25)
-axis(1, at=seq(0, 1.0, 0.1), labels=seq(0, 1.0, 0.1), cex.axis=1.75)
-axis(2, at=seq(0, 1.0, 0.1), labels=seq(0, 1.0, 0.1), cex.axis=1.75)
-mtext("Age Structure CR Components", side = 3, line = -3, outer=TRUE, cex=2.25)
+#     plot(biomass, catches, type="l", ylim=c(0, 30000), col="black", lwd=6,
+#          ylab="Catch (1000 mt)", xlab="Biomass (1000 mt)",
+#          yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.75)
+#     abline(v=b.lim, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+#     abline(v=b.tar, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+#     text(x=b.lim-8500, y=26000, expression(bold("B"["limit"])), cex=2.00)
+#     text(x=b.tar+8500, y=26000, expression(bold("B"["target"])), cex=2.00)
+#    # title(main=name, cex.main=2.25)
+#     axis(1, at=seq(0, 60000, 10000), labels=seq(0, 60, 10), cex.axis=1.75)
+#     axis(2, at=seq(0, 30000, 5000), labels=seq(0, 30, 5), cex.axis=1.75)
 
-
-plot.control.rule <- function(exp.rates, catches, b.lim, b.tar, name){
-    plot(biomass, exp.rates, type="l", ylim=c(0, 1.0), col="black", lwd=6,
-         ylab="Exploitation Rate (µ)", xlab="Biomass (1000 mt)",
-         yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.75)
-    abline(v=b.lim, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
-    abline(v=b.tar, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
-    text(x=b.lim-8500, y=0.5, expression(bold("B"["limit"])), cex=2.00)
-    text(x=b.tar+8500, y=0.5, expression(bold("B"["target"])), cex=2.00)
-    #title(main=name, cex.main=2.25)
-    axis(1, at=seq(0, 60000, 10000), labels=seq(0, 60, 10), cex.axis=1.75)
-    axis(2, at=seq(0, 1.0, 0.1), labels=seq(0, 1.0, 0.1), cex.axis=1.75)
-
-    plot(biomass, catches, type="l", ylim=c(0, 30000), col="black", lwd=6,
-         ylab="Catch (1000 mt)", xlab="Biomass (1000 mt)",
-         yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.75)
-    abline(v=b.lim, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
-    abline(v=b.tar, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
-    text(x=b.lim-8500, y=26000, expression(bold("B"["limit"])), cex=2.00)
-    text(x=b.tar+8500, y=26000, expression(bold("B"["target"])), cex=2.00)
-   # title(main=name, cex.main=2.25)
-    axis(1, at=seq(0, 60000, 10000), labels=seq(0, 60, 10), cex.axis=1.75)
-    axis(2, at=seq(0, 30000, 5000), labels=seq(0, 30, 5), cex.axis=1.75)
-
-}
+# }
 
 library(tidyverse)
 
@@ -176,12 +173,12 @@ fs.df$control.rule <- factor(fs.df$control.rule,
 
 fs.names <- data.frame(control.rule=unique(fs.df$control.rule), cr.name=c("Default", "Low Threshold", "High Threshold", "High Harvest", "Low Harvest", "Three Step\nThreshold", "Big Fish Only\n(>110g)", "No Fishing"))
 
-ggplot(fs.df, aes(x=biomass, y=harvest.rate, color=control.rule, fontface="bold"), x=3000, y=0.65)+
+simple.cr.plot <- ggplot(fs.df, aes(x=biomass, y=harvest.rate, color=control.rule, fontface="bold"), x=3000, y=0.65)+
      geom_line(size=1.5)+
-     geom_text(data=fs.names, aes(x=3000, y=0.65, label=cr.name), hjust=0, vjust=0.75, size=10)+
+     geom_text(data=fs.names, aes(x=3000, y=0.65, label=cr.name), hjust=0, vjust=0.75, size=6)+
      #geom_vline(aes(xintercept=20000))+
      scale_color_manual(values=hcr.colors.named)+
-     scale_y_continuous(limits=c(-0.005, 0.70), expand=c(0, 0), breaks=c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6), labels=c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6))+
+     scale_y_continuous(limits=c(-0.005, 0.70), expand=c(0, 0), breaks=c(0.0, 0.2, 0.4, 0.6), labels=c(0.0, 0.2, 0.4, 0.6))+
      scale_x_continuous(breaks=seq(0, 70000, by=20000), labels=seq(0, 70, by=20), expand=c(0, 0))+
      coord_cartesian(xlim=c(0, 80000)) + 
      facet_wrap(~control.rule, nrow=2, scales="free_x")+
@@ -193,18 +190,18 @@ ggplot(fs.df, aes(x=biomass, y=harvest.rate, color=control.rule, fontface="bold"
           panel.grid.minor=element_blank(),
           panel.spacing.x=unit(0.5, "cm"),
           panel.spacing.y=unit(1, "cm"),
-          plot.margin = unit(c(0, 30, 0, 0), "pt"),
-          axis.title.x = element_text(face="bold", size=20),
-          axis.text.x = element_text(size=16),
-          axis.text.y = element_text(size=16),
-          axis.title.y = element_text(face="bold", size=20),
+          plot.margin = unit(c(0, 30, 30, 0), "pt"),
+          axis.title.x = element_text(face="bold", size=14),
+          axis.text.x = element_text(size=12),
+          axis.text.y = element_text(size=12),
+          axis.title.y = element_text(face="bold", size=14),
           plot.title = element_blank()
      )
 
 grad.plot.sing <- gradient.plot$p+
      scale_fill_gradient(low="white", high="red", na.value = "transparent", name="Harvest Rate")+
      geom_label_contour(breaks=c(0.1, 0.20, 0.30, 0.40), skip=0, label.placer=label_placer_fraction(0.5), size=8, label.padding = unit(5, "pt"))+
-     scale_x_continuous("Pre-Fishery Biomass (1000 mt)", expand=c(0, 0), breaks=seq(0, 80000, 10000), labels=seq(0, 80, 10))+
+     scale_x_continuous(name="Pre-Fishery Biomass (1000 mt)", expand=c(0, 0), breaks=seq(0, 80000, 10000), labels=seq(0, 80, 10))+
      coord_cartesian(xlim=c(0, 80000))+
      labs(title="Gradient Rule")+
      theme(
@@ -212,10 +209,10 @@ grad.plot.sing <- gradient.plot$p+
           legend.direction="vertical",
           legend.key.width=unit(1.0, "cm"),
           legend.key.height=unit(1.0, "cm"),
-          legend.text = element_text(size=14),
-          legend.title = element_text(size=16),
-          axis.text = element_text(size=14),
-          axis.title = element_text(size=18, face="bold"),
+          legend.text = element_text(size=12),
+          legend.title = element_text(size=14),
+          axis.text = element_text(size=12),
+          axis.title = element_text(size=14, face="bold"),
           plot.title = element_blank(),
           axis.title.x = element_text(margin=margin(15, 0, 0, 0)),
           axis.title.y = element_text(margin=margin(0, 15, 0, 0))
@@ -223,7 +220,7 @@ grad.plot.sing <- gradient.plot$p+
 
 as.plot.sing <- as.plot$p+
      geom_label_contour(breaks=c(0.1, 0.20), skip=0, label.placer=label_placer_fraction(0.5), size=8, label.padding = unit(5, "pt"))+
-     scale_x_continuous(expand=c(0, 0), name="", breaks=seq(0, 80000, 10000), labels=seq(0, 80, 10))+
+     scale_x_continuous(name="Pre-Fishery Biomass (1000 mt)", expand=c(0, 0), breaks=seq(0, 80000, 10000), labels=seq(0, 80, 10))+
      scale_fill_gradient(low="white", high="red", limits=c(0.0, 0.5), name="Harvest Rate")+
      coord_cartesian(xlim=c(0, 80000))+
      labs(title="Evenness Rule")+
@@ -232,10 +229,10 @@ as.plot.sing <- as.plot$p+
           legend.direction="vertical",
           legend.key.width=unit(1.0, "cm"),
           legend.key.height=unit(1.0, "cm"),
-          legend.text = element_text(size=14),
-          legend.title = element_text(size=16),
-          axis.text = element_text(size=14),
-          axis.title = element_text(size=18, face="bold"),
+          legend.text = element_text(size=12),
+          legend.title = element_text(size=14),
+          axis.text = element_text(size=12),
+          axis.title = element_text(size=14, face="bold"),
           plot.title = element_blank(),
           axis.title.x = element_text(margin=margin(15, 0, 0, 0)),
           axis.title.y = element_text(margin=margin(0, 15, 0, 0))
@@ -243,11 +240,20 @@ as.plot.sing <- as.plot$p+
 
 library(patchwork)
 
-(tag_facet(simple.cr.plot) + (as.plot.sing / grad.plot.sing)) +
-     plot_annotation(
-          title="Harvest Control Rules",
-          tag_levels="A"
+(
+     tag_facet(simple.cr.plot, x=70000, y=0.70) / 
+     (as.plot.sing + grad.plot.sing + 
+          plot_layout(guides="collect") & 
+          theme(
+               legend.position = 'bottom', 
+               legend.direction = "horizontal"
+          )
      )
+) +
+plot_annotation(
+     #title="Harvest Control Rules",
+     tag_levels="A"
+)
 
 ggsave("/Users/jzahner/Desktop/hcrs.eps", device="eps", dpi=320)
 
