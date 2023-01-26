@@ -135,13 +135,32 @@ composite.raw.data <- function(model.dirs, nyr){
 
 }
 
+composite.overdisp.par <- function(model.dirs){
+
+    overdisp <- c()
+
+    for(i in 1:length(model.dirs)){
+        d <- model.dirs[i]
+        iter.data <- t(as.matrix(read_csv(d, col_names=FALSE, show_col_types = FALSE)))
+        par.names <- iter.data[!is.na(iter.data[,1]), 1]
+
+        iter.data.2 <- matrix(as.numeric(iter.data[, 2:ncol(iter.data)]), ncol=(ncol(iter.data)-1))
+        colnames(iter.data.2) <- par.names
+
+        overdisp.data <- iter.data.2[, "juvenile_overdispersion"]
+
+        overdisp <- c(overdisp, overdisp.data)
+    }  
+    return(overdisp)
+}
+
 start.year <- 1980
-curr.year <- 2022
-nyr.sim <- 35
+curr.year <- 2023
+nyr.sim <- 0
 years <- seq(start.year, curr.year+nyr.sim-1)
 nyr <- length(years)
 
-sims <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 2512, 3169, 3709, 4288, 4716, 4775, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
+sims <- c(197, 649, 1017, 1094, 1144, 1998, 2078, 2214, 2241, 2255, 2386, 3169, 3709, 4288, 4716, 4775, 7251, 7915, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
 cr <- c("base")
 
 model.dirs <- apply(
@@ -151,7 +170,7 @@ model.dirs <- apply(
                     paste0(here::here("results"), "/", x[2], "/sim_", as.numeric(x[1]), "/year_", nyr.sim, "/model/")
             )
 
-base.dir <- "/Users/jzahner/Desktop/Projects/basa/model/"
+base.dir <- "/Users/jzahner/Desktop/Projects/basa_official/model/"
 variances <- read.table(paste0(base.dir, "/mcmc_out/VARSReport.csv"), sep=",", header=FALSE)[-c(1:1),]
 names(variances) <- c("mdm", "egg", "adfg.hydro", "pwssc.hydro")
 
@@ -159,41 +178,41 @@ add.vars <- apply(variances, 2, median)
 raw.data <- composite.raw.data(model.dirs, nyr)
 cvs <- list(
     mdm         = as.vector(rep(add.vars[1], nyr)),
-    egg         = as.vector(sqrt(raw.data$egg_se[1:nyr]^2 + add.vars[2]^2)),
-    adfg.hydro  = as.vector(rep(add.vars[3], nyr)),
+    #egg         = as.vector(sqrt(raw.data$egg_se[1:nyr]^2 + add.vars[2]^2)),
+    #adfg.hydro  = as.vector(rep(add.vars[3], nyr)),
     pwssc.hydro = as.vector(sqrt((raw.data$pwssc_hydro_se[1:nyr]^2) + (add.vars[4]^2)))
 )
 
-mdm.fname <- apply(as.matrix(model.dirs), 1, function(x) paste0(x, "/mcmc_out/MDM.csv"))
-egg.fname <- apply(as.matrix(model.dirs), 1, function(x) paste0(x, "/mcmc_out/EGG.csv"))
-adfg.hydro.fname <- apply(as.matrix(model.dirs), 1, function(x) paste0(x, "/mcmc_out/HYD_ADFG.csv"))
+mdm.fname         <- apply(as.matrix(model.dirs), 1, function(x) paste0(x, "/mcmc_out/MDM.csv"))
+#egg.fname        <- apply(as.matrix(model.dirs), 1, function(x) paste0(x, "/mcmc_out/EGG.csv"))
+#adfg.hydro.fname <- apply(as.matrix(model.dirs), 1, function(x) paste0(x, "/mcmc_out/HYD_ADFG.csv"))
 pwssc.hydro.fname <- apply(as.matrix(model.dirs), 1, function(x) paste0(x, "/mcmc_out/HYD_PWSSC.csv"))
-# juv.schools.fname <- apply(as.matrix(model.dirs), 1, function(x) paste0(x, "/mcmc_out/juv_schools.csv"))
-# overdisp.fname <- paste0(base.dir, "/mcmc_out/iterations.csv")
+juv.schools.fname <- apply(as.matrix(model.dirs), 1, function(x) paste0(x, "/mcmc_out/juv_schools.csv"))
+overdisp.fname    <- apply(as.matrix(model.dirs), 1, function(x) paste0(x, "/mcmc_out/iterations.csv"))
 
-# juv.overdisp <- read.table(overdisp.fname,  header = TRUE, sep = ",")[-c(1:1), 20]
-# juv.schools.mask <- c(raw.data$juvenile_survey == NaN)[1:nyr]
+juv.overdisp <- composite.overdisp.par(overdisp.fname)
+juv.schools.mask <- c(is.na(raw.data$juvenile_survey))[1:nyr]
 
 mdm.pp <- generate.post.pred(mdm.fname, variances$mdm, years)
-egg.pp <- generate.post.pred(egg.fname, variances$egg, years)
-adfg.hydro.pp <- generate.post.pred(adfg.hydro.fname, variances$adfg.hydro, years)
+#egg.pp <- generate.post.pred(egg.fname, variances$egg, years)
+#adfg.hydro.pp <- generate.post.pred(adfg.hydro.fname, variances$adfg.hydro, years)
 pwssc.hydro.pp <- generate.post.pred(pwssc.hydro.fname, variances$pwssc.hydro, years)
-#juv.schools.pp <- generate.post.pred(juv.schools.fname, juv.overdisp, years, dist="negbin", mask=juv.schools.mask)
+juv.schools.pp <- generate.post.pred(juv.schools.fname, juv.overdisp, years, dist="negbin", mask=juv.schools.mask)
 
 
 # Read in and format raw survey data for each annual survey
 mdm.data            <- data.frame(year=as.character(years), data=raw.data$mdm[1:length(years)], lower=raw.data$mdm[1:length(years)]/calc.buck.cv(cvs$mdm), upper=raw.data$mdm[1:length(years)]*calc.buck.cv(cvs$mdm))
-egg.data            <- data.frame(year=as.character(years), data=raw.data$egg[1:length(years)], lower=raw.data$egg[1:length(years)]/calc.buck.cv(cvs$egg), upper=raw.data$egg[1:length(years)]*calc.buck.cv(cvs$egg))
-adfg.hydro.data     <- data.frame(year=as.character(years), data=raw.data$adfg_hydro[1:length(years)], lower=raw.data$adfg_hydro[1:length(years)]/calc.buck.cv(cvs$adfg.hydro), upper=raw.data$adfg_hydro[1:length(years)]*calc.buck.cv(cvs$adfg.hydro))
+#egg.data            <- data.frame(year=as.character(years), data=raw.data$egg[1:length(years)], lower=raw.data$egg[1:length(years)]/calc.buck.cv(cvs$egg), upper=raw.data$egg[1:length(years)]*calc.buck.cv(cvs$egg))
+#adfg.hydro.data     <- data.frame(year=as.character(years), data=raw.data$adfg_hydro[1:length(years)], lower=raw.data$adfg_hydro[1:length(years)]/calc.buck.cv(cvs$adfg.hydro), upper=raw.data$adfg_hydro[1:length(years)]*calc.buck.cv(cvs$adfg.hydro))
 pwssc.hydro.data    <- data.frame(year=as.character(years), data=raw.data$pwssc_hydro[1:length(years)], lower=raw.data$pwssc_hydro[1:length(years)]/calc.buck.cv(cvs$pwssc.hydro), upper=raw.data$pwssc_hydro[1:length(years)]*calc.buck.cv(cvs$pwssc.hydro))
-#aer.juvenile.data   <- data.frame(year=as.character(years), data=raw.data$juvenile_survey[1:length(years)])
+aer.juvenile.data   <- data.frame(year=as.character(years), data=raw.data$juvenile_survey[1:length(years)])
 
 data <- list(
     mdm = mdm.data,
-    egg = egg.data,
-    adfg.hydro = adfg.hydro.data,
-    pwssc.hydro = pwssc.hydro.data#,
-    #juvenile = aer.juvenile.data
+    #egg = egg.data,
+    #adfg.hydro = adfg.hydro.data,
+    pwssc.hydro = pwssc.hydro.data,
+    juvenile = aer.juvenile.data
 )
 for(i in 1:length(data)){
     missing <- data[[i]]$data == -9
@@ -204,15 +223,15 @@ for(i in 1:length(data)){
 
 
 mdm.fit.plot <- plot.survey.fits(mdm.pp, data$mdm, y.max=500, title="Mile Days of Milt")
-egg.fit.plot <- plot.survey.fits(egg.pp, data$egg, y.max=21, title="Egg Deposition (trillions")
-adfg.hydro.fit.plot <- plot.survey.fits(adfg.hydro.pp, data$adfg.hydro, y.max=175000, title="ADF&G Hydroacoustic Biomass (1000s tons)", scale=1000)
+#egg.fit.plot <- plot.survey.fits(egg.pp, data$egg, y.max=21, title="Egg Deposition (trillions")
+#adfg.hydro.fit.plot <- plot.survey.fits(adfg.hydro.pp, data$adfg.hydro, y.max=175000, title="ADF&G Hydroacoustic Biomass (1000s tons)", scale=1000)
 pwssc.hydro.fit.plot <- plot.survey.fits(pwssc.hydro.pp, data$pwssc.hydro, y.max=205000, title="PWSSC Hydroacoustic Biomass (1000s tons)", scale=1000)
-#aer.juvenile.fit.plot <- plot.survey.fits(juv.schools.pp, data$juvenile, y.max=400000, title="Age 1 Schools", cvs=FALSE)
+aer.juvenile.fit.plot <- plot.survey.fits(juv.schools.pp, data$juvenile, y.max=40000, title="Age 1 Schools", cvs=FALSE)
 
 library(ggpubr)
 
 ggarrange(
-    mdm.fit.plot, egg.fit.plot, adfg.hydro.fit.plot, pwssc.hydro.fit.plot, #aer.juvenile.fit.plot,
+    mdm.fit.plot, pwssc.hydro.fit.plot, aer.juvenile.fit.plot,
     nrow=2,
     ncol=2,
     common.legend = TRUE, legend="right"
