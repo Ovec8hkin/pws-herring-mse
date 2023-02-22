@@ -178,20 +178,23 @@ generate.recruitment.deviates <- function(nyr.sim, sim.seed){
   devs <- rep(NA, nyr.sim)
   sigmas <- rep(NA, nyr.sim)
 
-  devs[1:5] <- rnorm(5, -2.57, 1.00)
-  sigmas[1:5] <- rep(1.00, 5)
+  devs[1:max.regime.length] <- rnorm(max.regime.length, 0.345, 1.140)#rnorm(max.regime.length, -1.14, 1.20)
+  sigmas[1:max.regime.length] <- rep(1.140, max.regime.length)#rep(1.20, max.regime.length)
 
-  high.regime <- FALSE
-  for(y in 1:(nyr.sim-5)){
+  high.regime <- TRUE
+  for(y in 1:(nyr.sim-max.regime.length)){
     if(y %% max.regime.length == 0) high.regime <- !high.regime
 
-    dev <- ifelse(high.regime == 1, rnorm(1, -2.57, 1.00), rnorm(1, -1.14, 1.20))
-    sig <- ifelse(high.regime == 1, 1.00, 1.20)
+    dev <- ifelse(high.regime == 1, rnorm(1, -1.289, 0.961), rnorm(1, 0.345, 1.140))#rnorm(1, -2.57, 1.00), rnorm(1, -1.14, 1.20))
+    sig <- ifelse(high.regime == 1, 0.961, 1.140)
 
-    devs[y+5] <- dev
-    sigmas[y+5] <- sig
+    devs[y+max.regime.length] <- dev
+    sigmas[y+max.regime.length] <- sig
 
   }
+  
+  devs[nyr.sim] <- rnorm(1, -1.289, 0.961)
+  sigmas[nyr.sim] <- 0.961
 
   return(list(devs=devs, sigmas=sigmas))
 
@@ -235,10 +238,18 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
     fish.selectivity <- matrix(1, nrow=4, ncol=10)
     fish.selectivity[, 1:3] <- 0 # Selectivity 0 for fish age 0-2
 
+    log.mean.age0 <- read_csv(file.path(model.0.dir, "mcmc_out", "Age3.csv"), col_names=FALSE, show_col_types=FALSE) %>%
+      summarise(across(everything(), median)) %>%
+      as.matrix %>%
+      as.vector %>%
+      mean %>%
+      log
+
     # Read in other parameters
     params <- read.par.file("~/Desktop/Projects/basa/model/PWS_ASA.par")
     par.samples <- set.parameters(write, sim.seed)
     params[names(par.samples)] <- par.samples
+    params$log_MeanAge0     <- log.mean.age0
     params$female.spawners  <- tail(dat.files$PWS_ASA.dat$perc.female, 1)
     params$pk               <- dat.files$PWS_ASA.dat$pk
     params$waa              <- true.waa
@@ -465,9 +476,9 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
 
 # source(file=paste0(here::here("R/operating_model/"),  "fun_operm.R"))
 # source(file=paste0(here::here("R/operating_model/"),  "fun_obsm.R"))
-#   cr <- list(type="hcr.threshold.linear",      lower.threshold=0, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20)
-#   sim.dir <- paste0(here::here("results"), "/test/")
-#   sim.out.f.00 <- run.simulation(cr, nyr.sim=5, sim.seed=1998, write=sim.dir, assessment = FALSE, hindcast=FALSE)
+  # cr <- list(type="hcr.threshold.linear",      lower.threshold=0, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20)
+  # sim.dir <- paste0(here::here("results"), "/test/")
+  # sim.out.f.00 <- run.simulation(cr, nyr.sim=5, sim.seed=1998, write=sim.dir, assessment = FALSE, hindcast=FALSE)
 
 # biomass <- apply(sim.out.f.00$pop.dyn$prefish.spawn.biomass, 1, sum)
 
