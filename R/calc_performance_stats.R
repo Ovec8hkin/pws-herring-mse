@@ -50,16 +50,36 @@ hcr.names <- c("base", "low.harvest", "high.harvest", "low.biomass", "high.bioma
 ## BIOMASS AND CATCH DATA FROM THAT SIMULATION SEED
 ## IS NOT INCLUDED IN THE DATA. THUS, SOME CONTROL RULES
 ## WILL HAVE MORE DATA BASED ON SIMULATION STABILITY.
-bio.traj.df <- data.frame(year=NA, biomass=NA, control.rule=NA, sim=NA)
-catch.data <- data.frame(year=NA, catch=NA, fishery=NA, control.rule=NA, sim=NA)
-for(cr in hcr.names){
-    print(cr)
-    cr.dat <- read.catch.data(cr, seeds, nyr)
-    catch.data <- catch.data %>% bind_rows(cr.dat)
-    #biomass.dat <- read.biomass.data(cr, seeds, 25)
+#bio.traj.df <- data.frame(year=NA, biomass=NA, control.rule=NA, sim=NA)
+#catch.data <- data.frame(year=NA, catch=NA, fishery=NA, control.rule=NA, sim=NA)
+
+cores <- parallel::detectCores()
+cl <- makeCluster(min(cores[1]-1, length(hcr.names)), outfile="")
+registerDoParallel(cl)
+
+bio.traj.df <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
+    source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
     biomass.dat <- read.true.biomass.data(cr, seeds, nyr)
-    bio.traj.df <- bio.traj.df %>% bind_rows(biomass.dat)
-}
+}, seeds=seeds, nyr=nyr, cl=cl)
+bio.traj.df <- bind_rows(bio.traj.df)
+
+catch.data <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
+    source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
+    biomass.dat <- read.catch.data(cr, seeds, nyr)
+}, seeds=seeds, nyr=nyr, cl=cl)
+catch.data <- bind_rows(catch.data)
+
+unregister_dopar()
+stopCluster(cl)
+
+# for(cr in hcr.names){
+#     print(cr)
+#     cr.dat <- read.catch.data(cr, seeds, nyr)
+#     catch.data <- catch.data %>% bind_rows(cr.dat)
+#     #biomass.dat <- read.biomass.data(cr, seeds, 25)
+#     biomass.dat <- read.true.biomass.data(cr, seeds, nyr)
+#     bio.traj.df <- bio.traj.df %>% bind_rows(biomass.dat)
+# }
 
 # Compute AAV for all control rules and simulations
 aav.df <- catch.data %>% na.omit() %>%                                          # Remove NAs
