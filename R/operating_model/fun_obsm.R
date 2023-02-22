@@ -6,7 +6,7 @@
 library(gtools)
 
 fun_obsm <- function(survey.indices, waa, fec, perc.female, juv.overdisp, sample.sizes, y, sim.seed,
-                     survey.controls = list(mdm=TRUE, egg=FALSE, pwssc.hydro=TRUE, adfg.hydro=FALSE, spac=TRUE, seac=FALSE, juv=TRUE, vhsv=FALSE, ich=FALSE)){
+                     survey.controls = list(mdm=TRUE, egg=FALSE, pwssc.hydro=FALSE, adfg.hydro=FALSE, spac=TRUE, seac=FALSE, juv=TRUE, vhsv=FALSE, ich=FALSE)){
   
   set.seed(sim.seed)
 
@@ -32,7 +32,8 @@ fun_obsm <- function(survey.indices, waa, fec, perc.female, juv.overdisp, sample
 
   # Generate observations with error
   mdm <- mdm.predicted[y]*exp(rnorm(1, 0, mdm.sd)-mdm.sd^2/2)
-  pwssc.hydro <- PWSSC.hydro.predicted[y]*exp(rnorm(1, 0, pwssc.hydro.sd)-pwssc.hydro.sd^2/2)
+  pwssc.hydro <- ifelse(survey.controls$pwssc.hydro, PWSSC.hydro.predicted[y]*exp(rnorm(1, 0, pwssc.hydro.sd)-pwssc.hydro.sd^2/2), -9)
+  pwssc.hydro.sd <- ifelse(survey.controls$pwssc.hydro, pwssc.hydro.sd, -9)
   
   #spawn.age.comp <- gtools::rdirichlet(1, 39*spawn.age.comp.predicted[y, ])
   spawn.age.comp <- rmultinom(1, sample.sizes$spac, spawn.age.comp.predicted[y, ]/sum(spawn.age.comp.predicted[y, ]))
