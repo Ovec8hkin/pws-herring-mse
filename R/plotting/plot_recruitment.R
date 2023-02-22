@@ -1,51 +1,105 @@
 source(file=paste0(here::here("R/plotting/", "compute_plot_products.R")))
 source(file=paste0(here::here("R/plotting/", "plot_utils.R")))
 
+generate.recruitment.deviates <- function(nyr.sim, sim.seed){
+  set.seed(sim.seed)
+  max.regime.length <- 15
+  
+  devs <- rep(NA, nyr.sim)
+  sigmas <- rep(NA, nyr.sim)
+  
+  devs[1:max.regime.length] <- rnorm(max.regime.length, 0.345, 1.140)
+  sigmas[1:max.regime.length] <- rep(1.140, max.regime.length)
+  
+  high.regime <- TRUE
+  for(y in 1:(nyr.sim-max.regime.length)){
+    if(y %% max.regime.length == 0) high.regime <- !high.regime
+    
+    dev <- ifelse(high.regime == 1, rnorm(1, -1.289, 0.961), rnorm(1, 0.345, 1.140))
+    sig <- ifelse(high.regime == 1, 0.961, 1.140)
+    
+    devs[y+max.regime.length] <- dev
+    sigmas[y+max.regime.length] <- sig
+    
+  }
+  
+  return(list(devs=devs, sigmas=sigmas))
+  
+}
+
 start.year <- 1980
-curr.year <- 2022
-nyr.sim <- 35
+curr.year <- 2023
+nyr.sim <- 0
 years <- seq(start.year, curr.year+nyr.sim-1)
 nyr <- length(years)
 
-model.dir <- here::here("results/base/sim_1017/year_35/model/")
+model.dir <- "/Users/jzahner/Desktop/Projects/basa/model/"#here::here("results/base/sim_649/year_0/model/")
+
+sim.rec.devs <- generate.recruitment.deviates(30, 2256)$devs
+sim.rec.devs.df <- data.frame(
+  year=as.character(rep(curr.year:(curr.year+30-1), 2)),
+  recruits=rep(exp(4.844+sim.rec.devs), 2),
+  .lower=0,
+  .upper=0,
+  .width=rep(c(0.50, 0.95), each=length(curr.year:(curr.year+30-1))),
+  .point="median",
+  .interval="qi"
+)
 
 recruit.df <- compute.recruitment(model.dir, nyr, years)
 # plot <- plot.recruitment.posterior(recruit.df, years)
 # plot +
 #      scale_fill_grey(start=0.8, end=0.6)
+recruit.df <- recruit.df %>% bind_rows(sim.rec.devs.df)
 
-regimes.df <- data.frame(
-                xmin=c(0, 13.25, 48.25, 63.25),
-                ymin=rep(0, 4),
-                ymax=rep(2000, 4),
-                xmax=c(13, 48, 63, 77),
-                c=as.factor(rep(c("red", "blue"), 2))
-              )
+recruit.df <- recruit.df %>% 
+                mutate(
+                  regime=as.factor(ifelse(year < 1992 | (year > 2021 & year < 2037), "high", "low"))
+                ) %>% 
+                print(n=200)
 
-regime.text <- data.frame(
-    x = c(4, 17, 52, 68),
-    y = rep(1900, 4),
-    text = rep(c("High", "Low"), 2)
+years <- as.numeric(unique(recruit.df$year))
+
+median.lines.df <- data.frame(
+  xmin=c(0, 13, 43, 58),
+  xmax=c(13, 43, 58, 73),
+  y = c(
+    recruit.df %>% filter(year > 1980 & year < 1993) %>% pull(recruits) %>% mean,
+    recruit.df %>% filter(year > 1992 & year < 2023) %>% pull(recruits) %>% mean,
+    recruit.df %>% filter(year > 2022 & year < 2038) %>% pull(recruits) %>% mean,
+    recruit.df %>% filter(year > 2037 & year < 2053) %>% pull(recruits) %>% mean
+  )
 )
 
 ggplot(recruit.df) +
-    geom_lineribbon(aes(x=year, y=recruits, ymin=.lower, ymax=.upper, group=1), size=0.75)+
-    geom_vline(xintercept=42, linetype="longdash")+
+    #geom_lineribbon(aes(x=year, y=recruits, ymin=.lower, ymax=.upper, group=1), size=0.75)+
+    geom_line(data=recruit.df %>% filter(.width==0.5), aes(x=year, y=recruits, color=regime, group=1), size=0.75)+
+    geom_vline(xintercept=43, linetype="longdash")+
+    geom_hline(yintercept=exp(4.844), linetype="dotted")+
     scale_fill_grey(start=0.8, end=0.6)+
-    geom_rect(
-        data=regimes.df, 
-        aes(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax, color=c), 
-        alpha=0.4, fill=NA, size=0.75
+    geom_segment(
+      data=median.lines.df, 
+      aes(x=xmin, xend=xmax, y=y, yend=y), 
+      linetype="solid"
     )+
-    geom_text(
-        data = regime.text,
-        aes(x=x, y=y, label=text),
-        size=8
-    )+
-    scale_color_manual(values=c("blue", "red"))+
-    scale_x_discrete("Year", breaks=seq(min(years), max(years), by=5))+
+    scale_color_manual("Regime", values=c("red", "blue", "red", "blue"))+
+    scale_x_discrete("Year", breaks=seq(min(years), max(years), by=10))+
     scale_y_continuous("Age-3 Recruits (millions)", breaks=seq(0, 2000, by=500))+
-    coord_cartesian(ylim=c(0, 2000), expand=c(0, 0))+
-    ggtitle("Age-3 Recruitment")
+    coord_cartesian(ylim=c(0, 2000), expand=0, clip="off")+
+    annotate(
+      "segment", x = 43, y = 2000, xend = 77, yend = 2000, size=2,
+      arrow = arrow(type = "closed", length = unit(0.02, "npc"))
+    )+
+    annotate("text", x=45, y=1900, label="Simulated", hjust=0, size=6)+
+    ggtitle("Age-3 Recruitment")+
+    theme_minimal()+
+    theme(
+      panel.grid = element_blank(),
+      axis.line = element_line(),
+      plot.title = element_text(size=20),
+      axis.title = element_text(size=14),
+      axis.text = element_text(size=12),
+      axis.ticks = element_line()
+    )
 
-ggsave("/Users/jzahner/Desktop/recruitment.eps", device="eps", dpi=320)
+#ggsave("/Users/jzahner/Desktop/recruitment.eps", device="eps", dpi=320)
