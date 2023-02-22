@@ -8,14 +8,19 @@ library(tidyverse)
 source(paste0(here::here("R/utils"), "/fun_read_dat.R"))
 source(paste0(here::here("R/plotting"), "/plot_util_vals.R"))
 
-nyr <- 25
+nyr <- 30
 years <- seq(1980, 1980+42+nyr-1)
 
-sims <- c(197, 2255, 2386, 3709, 4716, 8388, 8904, 8634, 8935, 1094, 4288)
+set.seed(1)
+sims <- sample(1:1e4, size=40)
+
+set.seed(1)
+sims <- c(sims, sample(1:1e4, size=40))
+#sims <- c(1017, 4775, 9725, 8462, 8789, 8522, 1799, 8229, 1129, 878, 7845, 5922, 6526, 5071, 4650, 2159, 3476, 2580, 1530, 7289, 4633, 4344, 1222, 2858, 5400, 526, 1069)
 
 hcr.names <- c("base", "high.harvest", "low.harvest", "high.biomass", "low.biomass", "evenness", "gradient", "three.step.thresh", "big.fish", "constant.f.00")
 
-year.0.fname <- paste0(here::here("results/base/sim_197/year_0/model/mcmc_out/"), "PFRBiomass.csv")
+year.0.fname <- paste0(here::here("results/base/sim_526/year_0/model/mcmc_out/"), "PFRBiomass.csv")
 curr.biomass.data <- read_csv(year.0.fname, col_names=as.character(years)) %>% pivot_longer(everything(), names_to="year", values_to="biomass")
 curr <- data.frame(
     year=as.numeric(rep(pull(select(curr.biomass.data, "year")), length(hcr.names))), 
@@ -38,39 +43,94 @@ biomass.traj <- biomass.traj.raw %>% na.omit() %>%
                     median_qi(biomass, .width = c(.50, .95))    # Compute confidence intervals around biomass
 
 # Side-by-side trajectories 
-ggplot(biomass.traj, aes(x=year, y=biomass, color=control.rule, group=control.rule))+
-    geom_line(size=1.0)+
-    scale_color_manual(values=as.vector(hcr.colors))+
-    geom_lineribbon(
-        data = biomass.traj %>% filter(control.rule == "Default" & year < 2022), 
-        aes(ymin=.lower, ymax=.upper), 
-        color="black", size=0.75
-    )+
-    geom_vline(xintercept=2022-1980)+
-    geom_hline(yintercept = 20000, linetype="longdash")+
-    geom_hline(yintercept = 40000, linetype="longdash")+
-    scale_fill_grey(start=0.8, end=0.6)+
-    scale_x_discrete("Year", breaks=seq(1980, 2022+nyr, by=5), expand=c(0,0))+
-    scale_y_continuous("Pre-Fishery Biomass (1000 mt)", breaks=c(0, 20000, 40000, 50000, 100000, 150000, 200000), labels=c(0, 20, 40, 50, 100, 150, 200), expand=c(0,0))+
-    coord_cartesian(ylim=c(0, 200000))+
-    ggtitle("Median Biomass Trajectories under Different Control Rules")+
-    theme(
-        panel.grid.minor = element_blank(),
-        panel.background = element_blank(),
-        axis.line.x = element_line(),
-        axis.line.y = element_line()
-    )
+p1 <- ggplot(biomass.traj, aes(x=year, y=biomass, color=control.rule, group=control.rule))+
+        geom_line(size=1.0)+
+        scale_color_manual(values=as.vector(hcr.colors))+
+        geom_lineribbon(
+            data = biomass.traj %>% filter(control.rule == "Default" & year < 2022), 
+            aes(ymin=.lower, ymax=.upper), 
+            color="black", size=0.75
+        )+
+        geom_vline(xintercept=2022, linetype="longdash")+
+        geom_vline(xintercept=2022+15, linetype="longdash")+
+        #geom_vline(xintercept=2022-1980)+
+        geom_hline(yintercept = 20000, linetype="longdash")+
+        geom_hline(yintercept = 40000, linetype="longdash")+
+        scale_fill_grey(start=0.8, end=0.6)+
+        scale_x_continuous("Year", breaks=seq(1980, 2022+nyr, by=5), expand=c(0,0))+
+        scale_y_continuous("Pre-Fishery Biomass (1000 mt)", breaks=c(0, 20000, 40000, 50000, 100000, 150000, 200000), labels=c(0, 20, 40, 50, 100, 150, 200), expand=c(0,0))+
+        coord_cartesian(ylim=c(0, 200000))+
+        ggtitle("Median Biomass Trajectories under Different Control Rules")+
+        theme(
+            panel.grid.minor = element_blank(),
+            panel.background = element_blank(),
+            axis.line.x = element_line(),
+            axis.line.y = element_line()
+        )
+p1
+
+constant.f.biomass <- as_tibble(biomass.traj.raw) %>% na.omit() %>%
+                        bind_rows(curr) %>%
+                        filter(control.rule == "constant.f.00") %>% 
+                        select(year, biomass, sim) %>%
+                        group_by(year, sim) %>%
+                        summarise(biomass = median(biomass)) %>%
+                        rename(biomass.unfished = biomass) %>%
+                        print(n=100)
+
+dynamic.b0.raw <- as_tibble(biomass.traj.raw) %>% na.omit() %>%
+                      bind_rows(curr) %>%
+                      left_join(
+                        constant.f.biomass,
+                        by = c("year", "sim")
+                      ) %>%
+                      group_by(year, sim, control.rule) %>%
+                      summarise(
+                        biomass = median(biomass),
+                        biomass.unfished = median(biomass.unfished),
+                        dyn.b0 = biomass/biomass.unfished
+                      ) %>%
+                      filter(dyn.b0 != 0) %>%
+                      mutate(control.rule=recode_factor(control.rule, !!!hcr.levels)) %>%
+                      group_by(year, control.rule) %>% 
+                      median_qi(dyn.b0, .width = c(.50, .95))
+
+p2 <- ggplot(dynamic.b0.raw %>% filter(year >= 2022), aes(x=year, y=dyn.b0, color=control.rule, group=control.rule))+
+        geom_line(size=1.0)+
+        geom_line(
+          data = dynamic.b0.raw %>% filter(control.rule == "Default" & year <= 2022), 
+          color="black", size=0.75
+        )+
+        geom_vline(xintercept=2022, linetype="longdash")+
+        geom_vline(xintercept=2022+15, linetype="longdash")+
+        scale_color_manual(values=as.vector(hcr.colors))+
+        scale_x_continuous("Year", breaks=seq(1980, 2022+nyr, by=5), expand=c(0,0))+
+        scale_y_continuous("Biomass Relative to Unfished Conditions", breaks=seq(0.0, 1.2, 0.1), expand=c(0,0))+
+        coord_cartesian(ylim=c(0, 1.2))+
+        ggtitle("Dynamic Biomass Trajectories under Different Control Rules")+
+        theme(
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.line.x = element_line(),
+          axis.line.y = element_line()
+        )
+p2
+
+library(patchwork)
+
+(p1/p2)+plot_layout(guides="collect")
 
 # Panelled trajectories by control rule
 ggplot(biomass.traj, aes(x=year, y=biomass, ymin=.lower, ymax=.upper, group=1)) +
     geom_lineribbon(size=0.75)+
     geom_point(size=1.2)+
-    geom_vline(xintercept=2022-1980)+
+    geom_vline(xintercept=2022)+
     geom_hline(yintercept = 20000, linetype="longdash")+
     geom_hline(yintercept = 40000, linetype="longdash")+
-    scale_fill_brewer(palette = "Blues")+
-    scale_x_discrete("Year", breaks=seq(1980, 2038, by=5))+
+    scale_fill_grey(start=0.8, end=0.6)+
+    scale_x_continuous("Year", breaks=seq(1980, 2052, by=5))+
     scale_y_continuous("Pre-Fishery Biomass", breaks=c(0, 20000, 40000, 50000, 100000, 150000, 200000), expand=c(0,0))+
     coord_cartesian(ylim=c(0, 220000))+
     facet_wrap(~control.rule, drop=TRUE, ncol=2)+
+  theme_minimal()+
     theme(panel.grid.minor = element_blank())
