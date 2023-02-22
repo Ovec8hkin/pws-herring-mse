@@ -40,8 +40,9 @@ reformat.metric.df <- function(metric.name){
     )
 }
 
-seeds <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 3169, 3709, 4288, 4716, 4775, 6460, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
-nyr <- 25
+set.seed(1)
+seeds <- sample(1e4, 40)#c(1017, 4775, 9725, 8462, 8789, 8522, 1799, 8229, 1129, 878, 7845, 5922, 6526, 5071, 4650, 2159, 3476, 2580, 1530, 7289, 4633, 4344, 1222, 2858, 5400, 526, 1069)
+nyr <- 30
 hcr.names <- c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "constant.f.00", "evenness", "gradient", "three.step.thresh", "big.fish")
 
 
@@ -56,7 +57,7 @@ for(cr in hcr.names){
     cr.dat <- read.catch.data(cr, seeds, nyr)
     catch.data <- catch.data %>% bind_rows(cr.dat)
     #biomass.dat <- read.biomass.data(cr, seeds, 25)
-    biomass.dat <- read.true.biomass.data(cr, seeds, 25)
+    biomass.dat <- read.true.biomass.data(cr, seeds, nyr)
     bio.traj.df <- bio.traj.df %>% bind_rows(biomass.dat)
 }
 
@@ -87,7 +88,17 @@ prob.threshold.df <- as_tibble(bio.traj.df) %>% na.omit() %>%                   
 # Compute biomass and depletion level in final year of simulation
 biomass.df <- as_tibble(bio.traj.df) %>% na.omit() %>%                          # Remove NAs
                 filter(year == max(bio.traj.df$year, na.rm=TRUE)) %>%           # Only use final year of sim
-                mutate(depletion=biomass/40000) %>%                             # Compute depletion from biomass
+                left_join(
+                    as_tibble(bio.traj.df) %>% na.omit() %>%                          
+                      filter(year == max(bio.traj.df$year, na.rm=TRUE) & control.rule == "constant.f.00") %>%
+                      rename(no.fish.biomass = biomass) %>%
+                      select(c(sim, no.fish.biomass)),
+                    by = "sim"
+                ) %>%
+                mutate(
+                  depletion = biomass/40000,                                      # Compute depletion from biomass
+                  dyn.b0 = biomass/no.fish.biomass
+                ) %>%                             
                 select(-c(year)) %>%                                            # Drop year column
                 relocate(c(control.rule, sim, biomass, depletion)) %>%          # Reorder columns
                 print(n=10)
@@ -96,25 +107,46 @@ biomass.df <- as_tibble(bio.traj.df) %>% na.omit() %>%                          
 # simulation (at least 5 years into the sim).
 lowest.depletion.df <- as_tibble(bio.traj.df) %>% na.omit() %>%                 # Reomve NAs
                         filter(year > 2021+5 & biomass > 0) %>%                 # Only use years 5 years into sim
-                        mutate(depletion=biomass/40000) %>%                     # Compute depletion from biomass
+                        left_join(
+                          as_tibble(bio.traj.df) %>% na.omit() %>%                          
+                            filter(year > 2021+5 & biomass > 0 & control.rule == "constant.f.00") %>%
+                            rename(no.fish.biomass = biomass) %>%
+                            select(c(year, sim, no.fish.biomass)),
+                          by = c("year", "sim")
+                        ) %>%
+                        mutate(
+                          depletion=biomass/40000,                             # Compute depletion from biomass
+                          dyn.b0 = biomass/no.fish.biomass
+                        ) %>%                     
                         group_by(control.rule, sim, year) %>%                   # Group
                         summarise(
-                            depletion = median(depletion)                       # Median depletion by year
+                            depletion = median(depletion),                      # Median depletion by year
+                            dyn.b0    = median(dyn.b0)
                         ) %>%
                         group_by(control.rule, sim) %>%                         # Group
                         summarise(
                             low.dep = min(depletion),                           # Lowest single year depletion level
-                            low.year = as.numeric(year[depletion == low.dep])   # Year in which low depletio occurred
+                            low.year = as.numeric(year[depletion == low.dep]),  # Year in which low depletion occurred
+                            low.dynb0 = min(dyn.b0),
+                            low.year.db0 = as.numeric(year[dyn.b0 == low.dynb0])
                         ) %>%
-                        print(n=1000)
+                        print(n=100)
 
 # Compute average biomass/depletion level for each control rule
 # and simulation.
 avg.biomass.df <- as_tibble(bio.traj.df) %>% na.omit() %>%                      # Remove NAs
+                    left_join(
+                      as_tibble(bio.traj.df) %>% na.omit() %>%                          
+                        filter(control.rule == "constant.f.00") %>%
+                        rename(no.fish.biomass = biomass) %>%
+                        select(c(sim, no.fish.biomass)),
+                      by = c("sim")
+                    ) %>%
                     group_by(control.rule, sim) %>%                             # Group
                     summarise(
                         avg.bio = median(biomass),                              # Median biomass across entire sim
-                        avg.dep = avg.bio/40000                                 # Median depletion across entire sim
+                        avg.dep = avg.bio/40000,                                # Median depletion across entire sim
+                        avg.db0 = median(biomass/no.fish.biomass)
                     ) %>%
                     print(n=10)
 
@@ -170,7 +202,8 @@ catch.biomass.df <- biomass.df %>%
                     inner_join(avg.biomass.df,      by=c("control.rule", "sim")) %>%
                     inner_join(lowest.depletion.df, by=c("control.rule", "sim")) %>%
                     inner_join(harvest.rate.df,     by=c("control.rule", "sim")) %>%
-                    mutate(control.rule=recode_factor(control.rule, !!!hcr.levels))
+                    mutate(control.rule=recode_factor(control.rule, !!!hcr.levels)) %>%
+                    filter(no.fish.biomass != 0)
 
 # Compute median, 50% (25-75), and 95% (2.5-97.5) confidence intervals
 # for all performane metrics.
@@ -178,21 +211,25 @@ catch.biomass.df <- as_tibble(catch.biomass.df) %>%
                         select(-c(n, n.below)) %>%
                         group_by(control.rule) %>%
                         median_qi(
-                            tot_catch, ann_catch, avg.dep, depletion, low.dep, aav, prob.below, stab, harvest.rate,
+                            tot_catch, ann_catch, dyn.b0, avg.db0, low.dynb0, aav, prob.below, stab, harvest.rate, #, avg.dep, depletion, low.dep,
                             .width=c(0.50, 0.95)
                         )
 
 # Reformat perforance data into long format for ease of plotting
-perf.data <- reformat.metric.df("tot_catch") %>%
+perf.data <- 
     bind_rows(
         reformat.metric.df("ann_catch"),
         reformat.metric.df("aav"),
-        reformat.metric.df("depletion"),
-        reformat.metric.df("avg.dep"),
-        reformat.metric.df("stab"),
-        reformat.metric.df("low.dep"),
-        reformat.metric.df("prob.below"),
-        reformat.metric.df("harvest.rate")
+        reformat.metric.df("harvest.rate"),
+        reformat.metric.df("dyn.b0"),
+        reformat.metric.df("avg.db0"),
+        reformat.metric.df("low.dynb0"),
+        #reformat.metric.df("depletion"),
+        #reformat.metric.df("avg.dep"),
+        #reformat.metric.df("stab"),
+        #reformat.metric.df("low.dep"),
+        reformat.metric.df("prob.below")
+        
     ) %>% 
     mutate(
         metric.long =
@@ -202,14 +239,17 @@ perf.data <- reformat.metric.df("tot_catch") %>%
                     tot_catch = "Total Catch",
                     ann_catch = "Annual Catch",
                     aav = "Average Annual Catch Variation",
+                    harvest.rate = "Realized Harvest Rate",
                     biomass = "Final Year Biomass",
                     depletion = "Final Year Depletion Level",
                     avg.bio = "Average Biomass",
                     avg.dep = "Average Depletion Level",
+                    dyn.b0 = "Final Year Biomass Relative to Unfished",
+                    avg.db0 = "Average Biomass Relative to Unfished",
+                    low.dynb0 = "Lowest Biomass Relative to Unfished",
                     stab = "Annual Biomass Variability",
                     low.dep = "Lowest Depletion Level",
-                    prob.below = "Proportion of Years Below Threshold",
-                    harvest.rate = "Realized Harvest Rate"
+                    prob.below = "Proportion of Years Below Threshold"
                 )
             )
     )
@@ -239,17 +279,20 @@ ggplot(perf.data) +
         scale_color_manual(values=as.vector(hcr.colors)) +
         scale_y_discrete(limits=rev, labels=function(x) str_wrap(x, width=15)) +
         facet_wrap_custom(~metric.long, ncol=3, scale="free_x", shrink=TRUE, scale_overrides = list(
-            scale_override(1, scale_x_continuous(breaks=seq(0, 1000000, 100000),   labels=seq(0, 1000, 100),  limits = c(0, 1000000))),
-            scale_override(2, scale_x_continuous(breaks=seq(0, 50000,  5000),     labels=seq(0, 50, 5),     limits = c(0, 50000))),
-            scale_override(3, scale_x_continuous(breaks=seq(0, 2.0, 0.25),        labels=seq(0, 2, 0.25),   limits = c(0, 2))),
+            #scale_override(1, scale_x_continuous(breaks=seq(0, 1000000, 100000),   labels=seq(0, 1000, 100),  limits = c(0, 1000000))),
+            scale_override(1, scale_x_continuous(breaks=seq(0, 50000,  5000),      labels=seq(0, 50, 5),      limits = c(0, 50000))),
+            scale_override(4, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
+            scale_override(5, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
+            scale_override(6, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
+            scale_override(2, scale_x_continuous(breaks=seq(0, 2.0, 0.25),        labels=seq(0, 2, 0.25),   limits = c(0, 2))),
             #scale_override(4, scale_x_continuous(breaks=seq(0, 500000, 100000),   labels=seq(0, 500, 100),  limits = c(0, 500000))),
-            scale_override(4, scale_x_continuous(breaks=seq(0, 15, 1),            labels=seq(0, 15, 1),     limits = c(0, 15))),
-            scale_override(5, scale_x_continuous(breaks=seq(0, 7, 1),    labels=seq(0, 7, 1),   limits = c(0, 7))),
+            #scale_override(4, scale_x_continuous(breaks=seq(0, 15, 1),            labels=seq(0, 15, 1),     limits = c(0, 15))),
+            #scale_override(5, scale_x_continuous(breaks=seq(0, 7, 1),    labels=seq(0, 7, 1),   limits = c(0, 7))),
             #scale_override(5, scale_x_continuous(breaks=seq(0, 200000, 25000),    labels=seq(0, 200, 25),   limits = c(0, 200000))),
-            scale_override(6, scale_x_continuous(breaks=seq(0, 0.5, 0.1),         labels=seq(0, 0.5, 0.1),  limits = c(0, 0.5))),
-            scale_override(7, scale_x_continuous(breaks=seq(0, 2.0, 0.1),         labels=seq(0, 2.0, 0.1),  limits = c(0, 2.0))),
-            scale_override(8, scale_x_continuous(breaks=seq(0, 0.5, 0.1),         labels=seq(0, 0.5, 0.1),  limits = c(0, 0.5))),
-            scale_override(9, scale_x_continuous(breaks=seq(0, 1.0, 0.1),         labels=seq(0, 1.0, 0.1),  limits = c(0, 1.0)))
+            #scale_override(6, scale_x_continuous(breaks=seq(0, 0.5, 0.1),         labels=seq(0, 0.5, 0.1),  limits = c(0, 0.5))),
+            #scale_override(7, scale_x_continuous(breaks=seq(0, 2.0, 0.1),         labels=seq(0, 2.0, 0.1),  limits = c(0, 2.0))),
+            scale_override(7, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
+            scale_override(3, scale_x_continuous(breaks=seq(0, 1.0, 0.1),         labels=seq(0, 1.0, 0.1),  limits = c(0, 1.0)))
         ))+
         labs(x="", y="", title="Performance Metric Summaries")+ 
         theme(
@@ -273,8 +316,8 @@ ms <- list(
     aav = 1.0,
     biomass = 20000,
     avg.bio = 20000,
-    avg.dep = 0.5,
-    depletion = 0.5,
+    avg.dep = 0.35,
+    depletion = 0.35,
     low.dep = 0.2,
     stab = 0.5,
     prob.below = 0.2,
@@ -321,7 +364,7 @@ total.utility <- function(utilities){
     return(prod(as.numeric(utilities))^(1/n))
 }
 
-perf.matrix <- perf.data %>% select(control.rule, metric, median, lower, upper) %>% as.matrix
+perf.matrix <- perf.data %>% select(control.rule, metric, median, lower, upper) %>% filter(metric %in% c("ann_catch", "depletion", "aav")) %>% as.matrix
 
 utility.matrix <- perf.matrix
 median.utilities <- apply(perf.matrix, 1, function(x) calc.utility(x[["median"]], x[["metric"]]))
