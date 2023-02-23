@@ -95,13 +95,27 @@ aav.df <- catch.data %>% na.omit() %>%                                          
 
 # Compute probability of biomass being below the lower
 # regulatory threshold for each control rule and simulation
+limit.thresholds <- list(
+    "base" = 19958,
+    "low.harvest" = 19958,
+    "high.harvest" = 19958,
+    "low.threshold" = 10000,
+    "high.threshold" = 30000,
+    "evenness" = 19958,
+    "gradient" = 19958,
+    "three.step.thresh" = 19958,
+    "big.fish" = 19958,
+    "constant.f.00" = 1e10
+)
 prob.threshold.df <- as_tibble(bio.traj.df) %>% na.omit() %>%                   # Remove NAs
                     filter(year > 2021) %>%                                     # Only use years after 2021
                     group_by(control.rule, sim) %>%                             # Group
                     summarise(
                         n=n(),                                                  # Total number of samples
                         n.below=sum(biomass < 19958),                           # Number of samples where biomass below threshold
-                        prob.below=n.below/n                                    # Proportion of samples below threshold
+                        prob.below=n.below/n,                                   # Proportion of samples below threshold
+                        n.closed=sum(biomass < limit.thresholds[control.rule][[1]]), # Number of samples where fishery is closed
+                        prop.closed=n.closed/n                                  # Proportion of years where fishery is closed
                     ) %>%
                     print(n=10)
 
@@ -228,10 +242,10 @@ catch.biomass.df <- biomass.df %>%
 # Compute median, 50% (25-75), and 95% (2.5-97.5) confidence intervals
 # for all performane metrics.
 catch.biomass.df <- as_tibble(catch.biomass.df) %>%
-                        select(-c(n, n.below)) %>%
+                        select(-c(n, n.below, n.closed)) %>%
                         group_by(control.rule) %>%
                         median_qi(
-                            tot_catch, ann_catch, dyn.b0, avg.db0, low.dynb0, aav, prob.below, stab, harvest.rate, #, avg.dep, depletion, low.dep,
+                            ann_catch, dyn.b0, avg.db0, low.dynb0, aav, prob.below, prop.closed, harvest.rate, #, avg.dep, depletion, low.dep,
                             .width=c(0.50, 0.95)
                         )
 
@@ -248,7 +262,8 @@ perf.data <-
         #reformat.metric.df("avg.dep"),
         #reformat.metric.df("stab"),
         #reformat.metric.df("low.dep"),
-        reformat.metric.df("prob.below")
+        reformat.metric.df("prob.below"),
+        reformat.metric.df("prop.closed")
         
     ) %>% 
     mutate(
@@ -269,7 +284,8 @@ perf.data <-
                     low.dynb0 = "Lowest Biomass Relative to Unfished",
                     stab = "Annual Biomass Variability",
                     low.dep = "Lowest Depletion Level",
-                    prob.below = "Proportion of Years Below Threshold"
+                    prob.below = "Proportion of Years Below Threshold",
+                    prop.closed = "Proportion of Year Fishery is Closed"
                 )
             )
     )
@@ -312,6 +328,7 @@ ggplot(perf.data) +
             #scale_override(6, scale_x_continuous(breaks=seq(0, 0.5, 0.1),         labels=seq(0, 0.5, 0.1),  limits = c(0, 0.5))),
             #scale_override(7, scale_x_continuous(breaks=seq(0, 2.0, 0.1),         labels=seq(0, 2.0, 0.1),  limits = c(0, 2.0))),
             scale_override(7, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
+            scale_override(8, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
             scale_override(3, scale_x_continuous(breaks=seq(0, 1.0, 0.1),         labels=seq(0, 1.0, 0.1),  limits = c(0, 1.0)))
         ))+
         labs(x="", y="", title="Performance Metric Summaries")+ 
@@ -331,30 +348,38 @@ ggsave("/Users/jzahner/Desktop/plot.png")
 ## -------------------------------------
 
 ms <- list(
-    tot_catch = 150000,
+    #tot_catch = 150000,
     ann_catch = 6000,
     aav = 1.0,
-    biomass = 20000,
-    avg.bio = 20000,
-    avg.dep = 0.35,
-    depletion = 0.35,
-    low.dep = 0.2,
-    stab = 0.5,
+    dyn.b0 = 0.50,
+    avg.db0 = 0.50,
+    low.db0 = 0.35,
+    #biomass = 20000,
+    #avg.bio = 20000,
+    #avg.dep = 0.35,
+    #depletion = 0.35,
+    #low.dep = 0.2,
+    #stab = 0.5,
     prob.below = 0.2,
+    prop.closed = 0.33,
     harvest.rate = 0.0
 )
 
 ls <- list(
-    tot_catch  = 500000,  # max annual catch 1970-1990 * nyr
+    #tot_catch  = 500000,  # max annual catch 1970-1990 * nyr
     ann_catch  = 20000,   # approximate max annual catch 1970-1990
-    aav        = 0.0,     # a constant catch/F rule has AAV 0     
-    biomass    = 80000,   # 50% biomass peak in 1990
-    avg.bio    = 80000,   # 50% of biomass peak
-    avg.dep    = 2.0,
-    depletion  = 2.0,     # matches avg_bio
-    low.dep    = 2.0,
-    stab       = 0.3,     # approximate median 
-    prob.below = 0.0,     # we want the probability to be tiny
+    aav        = 0.0,     # a constant catch/F rule has AAV 0
+    dyn.b0     = 1.0,
+    avg.db0    = 1.0,
+    low.db0    = 1.5,     
+    #biomass    = 80000,   # 50% biomass peak in 1990
+    #avg.bio    = 80000,   # 50% of biomass peak
+    #avg.dep    = 2.0,
+    #depletion  = 2.0,     # matches avg_bio
+    #low.dep    = 2.0,
+    #stab       = 0.3,     # approximate median 
+    prob.below = 0.0,      # we want the probability to be tiny,
+    prop.closed = 0.0,
     harvest.rate = 0.3  
 )
 
@@ -364,7 +389,7 @@ calc.utility <- function(value, metric){
 
     value <- as.numeric(value)
 
-    if(metric %in% c("aav", "stab", "prob.below")){
+    if(metric %in% c("aav", "stab", "prob.below", "prop.closed")){
         value <- 1-value
         m <- 1-m
         l <- 1-l
@@ -384,7 +409,7 @@ total.utility <- function(utilities){
     return(prod(as.numeric(utilities))^(1/n))
 }
 
-perf.matrix <- perf.data %>% select(control.rule, metric, median, lower, upper) %>% filter(metric %in% c("ann_catch", "depletion", "aav")) %>% as.matrix
+perf.matrix <- perf.data %>% select(control.rule, metric, median, lower, upper) %>% filter(metric %in% c("ann_catch", "dyn.b0", "aav", "prop.closed")) %>% as.matrix
 
 utility.matrix <- perf.matrix
 median.utilities <- apply(perf.matrix, 1, function(x) calc.utility(x[["median"]], x[["metric"]]))
@@ -409,3 +434,4 @@ utility.df <- as_tibble(utility.matrix) %>%
                 ) %>%
                 arrange(desc(rel.util)) %>%
                 print(n=10)
+
