@@ -380,15 +380,15 @@ ggsave("/Users/jzahner/Desktop/tradeoffs.png", width=12, height=12)
 
 (dvc.trade.plot| dvv.trade.plot| cvv.trade.plot) + plot_layout(guides="collect") & theme(legend.position="top-right")
 
+###################
 
-reformat.metric.df <- function(metric.name){
-    return(
-        catch.biomass.df %>% 
-            select(c("control.rule", starts_with(metric.name), ".width", ".point", ".interval")) %>%
-            rename_with(~ c("median", "lower", "upper"), c(metric.name, paste0(metric.name, ".lower"), paste0(metric.name, ".upper"))) %>%
-            mutate(metric=metric.name) %>%
-            relocate(c("control.rule", "metric", "median", "lower", "upper", ".width", ".point", ".interval"))
+cvb.lm.model   <- lm(ann_catch ~ dyn.b0,     data=catch.biomass.df %>% filter(.width == 0.5) %>% select(ann_catch, dyn.b0))
+aavvb.lm.model <- lm(aav ~ dyn.b0,           data=catch.biomass.df %>% filter(.width == 0.5) %>% select(aav, dyn.b0))
+aavvc.lm.model <- lm(aav ~ ann_catch,           data=catch.biomass.df %>% filter(.width == 0.5) %>% select(aav, ann_catch))
+#cvprob.lm.model <- lm(tot_catch ~ prob.below,   data=catch.biomass.df %>% filter(.width == 0.5) %>% select(tot_catch, prob.below) %>% mutate(prob.below = 100*prob.below))
 
-    )
-}
+intercepts  <- c(cvb.lm.model$coefficients[1],      aavvb.lm.model$coefficients[1],     aavvc.lm.model$coefficients[1])
+slopes      <- c(cvb.lm.model$coefficients[2],      aavvb.lm.model$coefficients[2],     aavvc.lm.model$coefficients[2])
+rsq         <- c(summary(cvb.lm.model)$r.squared,   summary(aavvb.lm.model)$r.squared , summary(aavvc.lm.model)$r.squared)
 
+data.frame(name=c("Catch v Biomass", "AAV v Biomass", "AAV v Catch"), intercept=intercepts, slope=slopes, r.squared=rsq)
