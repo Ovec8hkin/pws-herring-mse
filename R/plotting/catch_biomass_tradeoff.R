@@ -79,9 +79,19 @@ prob.threshold.df <- as_tibble(bio.traj.df) %>% na.omit() %>%
 
 biomass.df <- as_tibble(bio.traj.df) %>% na.omit() %>%
                 filter(year == max(bio.traj.df$year, na.rm=TRUE)) %>%
-                mutate(depletion=biomass/40000) %>%
+                left_join(
+                    as_tibble(bio.traj.df) %>% na.omit() %>%                          
+                      filter(year == max(bio.traj.df$year, na.rm=TRUE) & control.rule == "constant.f.00") %>%
+                      rename(no.fish.biomass = biomass) %>%
+                      select(c(sim, no.fish.biomass)),
+                    by = "sim"
+                ) %>%
+                mutate(
+                    depletion = biomass/40000,
+                    dyn.b0 = biomass/no.fish.biomass
+                ) %>%
                 select(-c(year)) %>%
-                relocate(c(control.rule, sim, biomass, depletion)) %>%
+                relocate(c(control.rule, sim, biomass, depletion, dyn.b0)) %>%
                 print(n=10)
 
 average.catch.df <- catch.data %>% na.omit() %>%
@@ -103,8 +113,8 @@ catch.biomass.df <- as_tibble(catch.biomass.df) %>%
                         select(-c(n, n.below)) %>%
                         group_by(control.rule) %>%
                         median_qi(
-                            tot_catch, ann_catch, biomass, depletion, aav, prob.below,
-                            .width=c(0.5, 0.95)
+                            tot_catch, ann_catch, biomass, depletion, aav, prob.below, dyn.b0,
+                            .width=c(0.5, 0.80)
                         )
 catch.biomass.df$cr <- factor(catch.biomass.df$control.rule, 
                                 levels=c("base", "high.harvest", "low.harvest", "lower.b0", "low.biomass", "higher.b0", "high.biomass", "evenness", "gradient", "three.step.thresh", "constant.f.00", "big.fish"),
@@ -117,7 +127,8 @@ tradeoff.df.long <- reformat.metric.df("ann_catch") %>%
                             reformat.metric.df("biomass"),
                             reformat.metric.df("depletion"),
                             reformat.metric.df("aav"),
-                            reformat.metric.df("prob.below")
+                            reformat.metric.df("prob.below"),
+                            reformat.metric.df("dyn.b0")
                         )
 
 fit.tradeoff.line <- function(formula, xrange, name){
@@ -152,7 +163,8 @@ generate.tradeoff.plot <- function(vars){
         biomass = seq(-10000, 160000, 10000),
         depletion = seq(-1, 5, 1),
         aav = round(seq(1.2, -0.2, -0.2), 2),
-        prob.below = seq(0.5, 0, -0.05)
+        prob.below = seq(0.5, 0, -0.05),
+        dyn.b0 = seq(-0.2, 1.2, 0.2)
     )
 
     axis.labels <- list(
@@ -161,7 +173,8 @@ generate.tradeoff.plot <- function(vars){
         biomass = seq(-10, 160, 10),
         depletion = seq(-1, 5, 1),
         aav = round(seq(1.2, -0.2, -0.2), 2),
-        prob.below = seq(0.5, 0, -0.05)
+        prob.below = seq(0.5, 0, -0.05),
+        dyn.b0 = seq(-0.2, 1.2, 0.2)
     )
 
     metric.names <- list(
@@ -170,7 +183,8 @@ generate.tradeoff.plot <- function(vars){
         biomass = "Final Year Biomass (1000 mt)",
         depletion = "Final Year Depletion Level",
         aav = "Average Annual Catch Variation",
-        prob.below = "Proportion of Years Biomass Below Lower Regulatory Threshold"
+        prob.below = "Proportion of Years Biomass Below Lower Regulatory Threshold",
+        dyn.b0 = "Final Year Biomass Relative to Unfished Conditions"
     )
 
     metric.names.short <- list(
@@ -179,7 +193,8 @@ generate.tradeoff.plot <- function(vars){
         biomass = "Final Year Biomass",
         depletion = "Final Year Depletion",
         aav = "Catch Variation",
-        prob.below = "Proportion of Years Below Threshold"
+        prob.below = "Proportion of Years Below Threshold",
+        dyn.b0 = "Biomass Relative to Unfished"
 
     )
 
@@ -191,10 +206,12 @@ generate.tradeoff.plot <- function(vars){
     y.breaks <- axis.breaks[[vars[2]]]
     y.labels <- axis.labels[[vars[2]]]
 
-    x.axis.name <- metric.names[[vars[1]]]
-    y.axis.name <- metric.names[[vars[2]]]
+    x.axis.name <- metric.names.short[[vars[1]]]
+    y.axis.name <- metric.names.short[[vars[2]]]
 
-    model <- fit.tradeoff.line(as.formula(paste0(vars[2], "~", vars[1])), min(x.breaks):max(x.breaks), name=vars[1])
+    print(x.breaks)
+
+    model <- fit.tradeoff.line(as.formula(paste0(vars[2], "~", vars[1])), seq(min(x.breaks), max(x.breaks), length.out=100), name=vars[1])
 
     plot <- ggplot(d)+
             geom_smooth(aes(x=x, y=y, ymin=ymin, ymax=ymax), data=model$preds, stat="identity", color="black")+
@@ -211,7 +228,7 @@ generate.tradeoff.plot <- function(vars){
             coord_cartesian(
                 xlim=c(x.breaks[2], x.breaks[length(x.breaks)-1]), 
                 ylim=c(y.breaks[2], y.breaks[length(y.breaks)-1]), 
-                expand=c(0.1,0.1)
+                expand=0
             )+
             ggtitle(plot.title) +
             theme_minimal()+ 
