@@ -174,30 +174,27 @@ compute.proportion.big.fish <- function(nya, big.fish.threshold=100){
 generate.recruitment.deviates <- function(nyr.sim, sim.seed){
   set.seed(sim.seed)
   max.regime.length <- 15
-
+  
   devs <- rep(NA, nyr.sim)
   sigmas <- rep(NA, nyr.sim)
-
-  devs[1:max.regime.length] <- rnorm(max.regime.length, 0.345, 1.140)#rnorm(max.regime.length, -1.14, 1.20)
-  sigmas[1:max.regime.length] <- rep(1.140, max.regime.length)#rep(1.20, max.regime.length)
-
+  
+  devs[1:max.regime.length] <- rnorm(max.regime.length, 0.0645, 1.35)
+  sigmas[1:max.regime.length] <- rep(1.20, max.regime.length)
+  
   high.regime <- TRUE
   for(y in 1:(nyr.sim-max.regime.length)){
     if(y %% max.regime.length == 0) high.regime <- !high.regime
-
-    dev <- ifelse(high.regime == 1, rnorm(1, -1.289, 0.961), rnorm(1, 0.345, 1.140))#rnorm(1, -2.57, 1.00), rnorm(1, -1.14, 1.20))
-    sig <- ifelse(high.regime == 1, 0.961, 1.140)
-
+    
+    dev <- ifelse(high.regime == 1, rnorm(1, -1.270, 1.05), rnorm(1, 0.0645, 1.35))
+    sig <- ifelse(high.regime == 1, 1.05, 1.35)
+    
     devs[y+max.regime.length] <- dev
     sigmas[y+max.regime.length] <- sig
-
+    
   }
   
-  devs[nyr.sim] <- rnorm(1, -1.289, 0.961)
-  sigmas[nyr.sim] <- 0.961
-
   return(list(devs=devs, sigmas=sigmas))
-
+  
 }
 
 run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, 
@@ -238,8 +235,15 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
     fish.selectivity <- matrix(1, nrow=4, ncol=10)
     fish.selectivity[, 1:3] <- 0 # Selectivity 0 for fish age 0-2
 
-    log.mean.age0 <- read_csv(file.path(model.0.dir, "mcmc_out", "Age3.csv"), col_names=FALSE, show_col_types=FALSE) %>%
-      summarise(across(everything(), median)) %>%
+    log.mean.age0 <- read_csv(file.path(model.0.dir, "mcmc_out", "Num_at_age.csv"), col_names = FALSE, show_col_types = FALSE) %>%
+      select(seq(1, 430, 10)) %>%
+      rename_with(~ as.character(1980:2022), everything()) %>%
+      summarise(
+        across(
+          as.character(1980:2022), 
+          \(x) mean(x, na.rm=TRUE)
+        )
+      ) %>%
       as.matrix %>%
       as.vector %>%
       mean %>%
