@@ -5,40 +5,49 @@ library(here)
 library(dplyr)
 library(magrittr)
 library(tidyverse)
+library(doParallel)
+library(patchwork)
 
+source(file=paste0(here::here(), "/R/calc_utility.R"))
 source(file=paste0(here::here("R/plotting/", "compute_plot_products.R")))
 source(file=paste0(here::here("R/plotting/", "plot_util_vals.r")))
 source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
 
-fnames <- c("foodbait_catch.csv", "gillnet_catch.csv", "pound_catch.csv", "seine_catch.csv")
+reformat.metric.df <- function(metric.name){
+    return(
+        catch.biomass.df %>% 
+            select(c("control.rule", starts_with(metric.name), ".width", ".point", ".interval")) %>%
+            rename_with(~ c("median", "lower", "upper"), c(metric.name, paste0(metric.name, ".lower"), paste0(metric.name, ".upper"))) %>%
+            mutate(metric=metric.name) %>%
+            relocate(c("control.rule", "metric", "median", "lower", "upper", ".width", ".point", ".interval"))
+
+    )
+}
+
 nyr <- 25
 years <- seq(1980, 1980+42+nyr-1)
 
 sims <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 3169, 3709, 4288, 4716, 4775, 6460, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
-nyr <- 25
 hcr.names <- c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "constant.f.00", "evenness", "gradient", "three.step.thresh", "big.fish")
 
-model.dir <- here::here("results/base/sim_197/year_25/model/")
+cores <- parallel::detectCores()
+cl <- makeCluster(min(cores[1]-1, length(hcr.names)), outfile="")
+registerDoParallel(cl)
 
-biomass.df <- compute.biomass.traj(model.dir, nyr, years)
+bio.traj.df <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
+    source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
+    biomass.dat <- read.true.biomass.data(cr, seeds, nyr)
+}, seeds=sims, nyr=nyr, cl=cl)
+bio.traj.df <- bind_rows(bio.traj.df)
 
-bio.traj.df <- data.frame(year=NA, biomass=NA, control.rule=NA, sim=NA)
-catch.data <- data.frame(year=NA, catch=NA, fishery=NA, control.rule=NA, sim=NA)
-for(cr in hcr.names){
-    print(cr)
-    cr.dat <- read.catch.data(cr, sims, nyr)
-    catch.data <- catch.data %>% bind_rows(cr.dat)
-    biomass.dat <- read.true.biomass.data(cr, sims, 25)
-    bio.traj.df <- bio.traj.df %>% bind_rows(biomass.dat)
-    # for(s in sims){
-    #     #model.dir <- paste0(here::here("results/"), cr, "/sim_", s, "/year_25/model/")
-    #     #biomass.df <- compute.biomass.traj(model.dir, length(years), years)
-    #     # biomass.df <- read.biomass.data(cr)
-    #     # tmp <- data.frame(year=biomass.df$year, biomass=biomass.df$biomass, sim=s, cr=cr)
-    #     # bio.traj.df <- rbind(bio.traj.df, tmp)
-    #     # rm(tmp)
-    # }
-}
+catch.data <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
+    source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
+    biomass.dat <- read.catch.data(cr, seeds, nyr)
+}, seeds=sims, nyr=nyr, cl=cl)
+catch.data <- bind_rows(catch.data)
+
+unregister_dopar()
+stopCluster(cl)
 
 aav <- function(catches){
     total.catch <- sum(catches)
