@@ -246,113 +246,139 @@ generate.tradeoff.plot <- function(vars){
     return(plot)
 }
 
-dvc.trade.plot <- generate.tradeoff.plot(c("depletion", "ann_catch"))
-dvv.trade.plot <- generate.tradeoff.plot(c("depletion", "aav"))
-cvv.trade.plot <- generate.tradeoff.plot(c("ann_catch", "aav"))
-#generate.tradeoff.plot(c("tot_catch", "prob.below"))
+generate.utility.plot <- function(vars){
 
-library(patchwork)
-(dvc.trade.plot| dvv.trade.plot| cvv.trade.plot) + plot_layout(guides="collect") & theme(legend.position="top-right")
+    yvar <- vars[1]
+    xvar <- vars[2]
 
-
-cvb.lm.model   <- lm(tot_catch ~ biomass,     data=catch.biomass.df %>% filter(.width == 0.5) %>% select(tot_catch, biomass))
-aavvb.lm.model <- lm(aav ~ biomass,           data=catch.biomass.df %>% filter(.width == 0.5) %>% select(aav, biomass))
-aavvc.lm.model <- lm(aav ~ tot_catch,           data=catch.biomass.df %>% filter(.width == 0.5) %>% select(aav, tot_catch))
-cvprob.lm.model <- lm(tot_catch ~ prob.below,   data=catch.biomass.df %>% filter(.width == 0.5) %>% select(tot_catch, prob.below) %>% mutate(prob.below = 100*prob.below))
-
-intercepts  <- c(cvb.lm.model$coefficients[1],      aavvb.lm.model$coefficients[1],     aavvc.lm.model$coefficients[1],     cvprob.lm.model$coefficients[1])
-slopes      <- c(cvb.lm.model$coefficients[2],      aavvb.lm.model$coefficients[2],     aavvc.lm.model$coefficients[2],     cvprob.lm.model$coefficients[2])
-rsq         <- c(summary(cvb.lm.model)$r.squared,   summary(aavvb.lm.model)$r.squared , summary(aavvc.lm.model)$r.squared,  summary(cvprob.lm.model)$r.squared)
-
-data.frame(name=c("Catch v Biomass", "AAV v Biomass", "AAV v Catch", "Catch v Prob"), intercept=intercepts, slope=slopes, r.squared=rsq)
-
-
-
-test.df <- reformat.metric.df("tot_catch") %>%
-    bind_rows(
-        reformat.metric.df("biomass"),
-        reformat.metric.df("depletion"),
-        reformat.metric.df("aav"),
-        reformat.metric.df("prob.below")
-    )
-
-
-generate.tradeoff.plot <- function(vars){
-
-    d1 <- test.df %>% filter(metric == vars[1])
-    d2 <- test.df %>% filter(metric == vars[2]) %>% select(c(control.rule, median, lower, upper, .width))
+    d1 <- tradeoff.df.long %>% filter(metric == xvar)
+    d2 <- tradeoff.df.long %>% filter(metric == yvar) %>% select(c(control.rule, median, lower, upper, .width))
 
     d <- d1 %>% inner_join(d2, by=c("control.rule", ".width"))
 
-    axis.breaks <- list(
-        tot_catch = seq(0, 500000, 50000),
-        biomass = seq(0, 150000, 10000),
-        depletion = seq(0, 5, 0.5),
-        aav = seq(1, 0, -0.1),
-        prob.below = seq(0.5, 0, -0.05)
+    bounds <- list(
+        ann_catch = c(0, 25000),
+        depletion = c(0, 4),
+        dyn.b0 = c(0, 1),
+        aav = c(0, 1)
     )
 
-    axis.labels <- list(
-        tot_catch = seq(0, 500, 50),
-        biomass = seq(0, 150, 10),
-        depletion = seq(0, 5, 0.5),
-        aav = seq(1, 0, -0.1),
-        prob.below = seq(0.5, 0, -0.05)
-    )
+    x.bounds <- bounds[[xvar]]
+    y.bounds <- bounds[[yvar]]
 
-    metric.names <- list(
-        tot_catch = "Total Catch (10000 mt)",
-        biomass = "Final Year Biomass (10000 mt)",
-        depletion = "Final Year Depletion Level",
-        aav = "Average Annual Catch Variation",
-        prob.below = "Probability Biomass Below Lower Regulatory Threshold"
-    )
+    x.seq <- seq(x.bounds[1], x.bounds[2], length.out=1000)
+    y.seq <- seq(y.bounds[1], y.bounds[2], length.out=1000)
 
-    metric.names.short <- list(
-        tot_catch = "Total Catch",
-        biomass = "Final Year Biomass",
-        depletion = "Final Year Depletion",
-        aav = "Catch Variation",
-        prob.below = "Probability Biomass Below Threshold"
+    u.x <- apply(as.matrix(x.seq), 1, function(x) calc.utility(x, xvar))
+    u.y <- apply(as.matrix(y.seq), 1, function(x) calc.utility(x, yvar))
 
-    )
+    cb.util.df <- expand.grid(y.seq, x.seq)
+    cb.total.utility <- apply(expand.grid(u.y, u.x), 1, total.utility)
+    cb.util.df$total.util <- cb.total.utility
+    colnames(cb.util.df) <- c("y", "x", "total.util")
 
-    plot.title <- paste0(metric.names.short[[vars[1]]], " - ", metric.names.short[[vars[2]]], " Tradeoff Plot")
+    plot <- ggplot(cb.util.df)+
+                geom_raster(aes(x=x, y=y, fill=total.util, z=total.util))+
+                geom_contour(aes(x=x, y=y, fill=total.util, z=total.util), breaks=c(0.25, 0.50, 0.75, 1.0), color="black", size=1)+
+                geom_label_contour(aes(x=x, y=y, fill=total.util, z=total.util), breaks=c(0.25, 0.50, 0.75, 1.0), skip=0, label.placer=label_placer_fraction(0.5))+
+                geom_point(data=d, aes(x=median.x, y=median.y, color=control.rule), size=4)+
+                scale_color_manual(values=hcr.colors.named, name="Control Rule") +
+                scale_fill_gradient("Utility", low="white", high="red")+
+                coord_cartesian(expand=0)+
+                guides(color="none")+
+                theme(
+                    axis.line = element_line()
+                )
 
-    x.breaks <- axis.breaks[[vars[1]]]
-    x.labels <- axis.labels[[vars[1]]]
+    if(xvar == "aav"){
+        plot <- plot + scale_x_reverse()
+    }
 
-    y.breaks <- axis.breaks[[vars[2]]]
-    y.labels <- axis.labels[[vars[2]]]
+    return(plot)
 
-    x.axis.name <- metric.names[[vars[1]]]
-    y.axis.name <- metric.names[[vars[2]]]
+}
 
-    plot <- ggplot(d)+
-            geom_pointinterval(aes(x=median.x, xmin=lower.x, xmax=upper.x,
-                                y=median.y,
-                                color=control.rule))+
-            geom_pointinterval(aes(x=median.x,
-                                y=median.y, ymin=lower.y, ymax=upper.y,
-                                color=control.rule))+
-            #geom_smooth(aes_auto(model$preds), data=model$preds, stat="identity", color="black")+
-            scale_x_continuous(x.axis.name, breaks=x.breaks, labels=x.labels)+
-            scale_y_reverse(y.axis.name, breaks=y.breaks, labels=y.labels)+
-            coord_cartesian(
-                xlim=c(x.breaks[1], x.breaks[length(x.breaks)]), 
-                ylim=c(y.breaks[1], y.breaks[length(y.breaks)]), 
-                expand=c(0.1, 0.1)
-            )+
-            ggtitle(plot.title) + 
+strip.gg.axes <- function(plot, x=TRUE, y=TRUE){
+    if(x){
+        plot <- plot +
             theme(
-                panel.grid.minor = element_blank()
+                axis.title.x = element_blank(),
+                axis.ticks.x = element_blank(),
+                axis.text.x = element_blank()
             )
+    }
 
-    show(plot)
+    if(y){
+        plot <- plot +
+            theme(
+                axis.title.y = element_blank(),
+                axis.ticks.y = element_blank(),
+                axis.text.y = element_blank()
+            )
+    }
 
     return(plot)
 }
 
+generate.fake.plot <- function(bounds, name, strip.x=TRUE, strip.y=TRUE, rev="none"){
+    data <- data.frame(
+        x=seq(bounds[1], bounds[2], length=3),
+        y=seq(bounds[1], bounds[2], length=3)
+    )
+
+    plot <- ggplot(data)+
+        geom_point(aes(x=x, y=y), color="white", alpha=0.0)+
+        labs(x=name, y=name)+
+        theme(
+            panel.background = element_blank(),
+            axis.text = element_text(size=14),
+            axis.title = element_text(size=18, face="bold")
+        )
+
+    if(strip.x){
+        plot <- plot+theme(
+            axis.title.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.text.x = element_blank()
+        )
+    }
+
+    if(strip.y){
+        plot <- plot+theme(
+            axis.title.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.text.y = element_blank()
+        )
+    }
+
+    if(rev == "x"){
+        plot <- plot+scale_x_reverse()
+    }
+
+    return(plot)
+
+}
+
+dvc.trade.plot <- generate.tradeoff.plot(c("ann_catch", "dyn.b0"))
+dvv.trade.plot <- generate.tradeoff.plot(c("dyn.b0", "aav"))
+cvv.trade.plot <- generate.tradeoff.plot(c("ann_catch", "aav"))
+
+cvd.util.plot <- generate.utility.plot(c("ann_catch", "dyn.b0"))
+cvv.util.plot <- generate.utility.plot(c("ann_catch", "aav"))
+dvv.util.plot <- generate.utility.plot(c("dyn.b0", "aav"))
+
+fake.1 <- generate.fake.plot(c(0, 25), name="Annual Catch", strip.y=FALSE)
+fake.2 <- generate.fake.plot(c(0, 4), name="Biomass Relative to Unfished")
+fake.3 <- generate.fake.plot(c(1, 0), name="Catch Variation", strip.x=FALSE, rev="x")
+
+(fake.1                                 + strip.gg.axes(cvd.util.plot)              + strip.gg.axes(cvv.util.plot)) /
+(strip.gg.axes(dvc.trade.plot, y=FALSE) + fake.2                                    + strip.gg.axes(dvv.util.plot)) /
+(cvv.trade.plot                         + strip.gg.axes(dvv.trade.plot, x=FALSE)    + fake.3) +
+plot_layout(guides="collect")
+
+ggsave("/Users/jzahner/Desktop/tradeoffs.png", width=12, height=12)
+
+(dvc.trade.plot| dvv.trade.plot| cvv.trade.plot) + plot_layout(guides="collect") & theme(legend.position="top-right")
 
 
 reformat.metric.df <- function(metric.name){
