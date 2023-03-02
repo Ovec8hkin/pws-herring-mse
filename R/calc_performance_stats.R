@@ -42,9 +42,10 @@ reformat.metric.df <- function(metric.name){
 
 set.seed(1)
 seeds <- sample(1e4, 40)#c(1017, 4775, 9725, 8462, 8789, 8522, 1799, 8229, 1129, 878, 7845, 5922, 6526, 5071, 4650, 2159, 3476, 2580, 1530, 7289, 4633, 4344, 1222, 2858, 5400, 526, 1069)
-nyr <- 30
+nyr <- 25
 hcr.names <- c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "constant.f.00", "evenness", "gradient", "three.step.thresh", "big.fish")
 
+seeds <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 2512, 3169, 3709, 4050, 4288, 4716, 4775, 6460, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
 
 ## NOTE THAT IF SOME SIMULATIONS FAILED AT SOME STAGE
 ## BIOMASS AND CATCH DATA FROM THAT SIMULATION SEED
@@ -279,13 +280,13 @@ perf.data <-
                     depletion = "Final Year Depletion Level",
                     avg.bio = "Average Biomass",
                     avg.dep = "Average Depletion Level",
-                    dyn.b0 = "Final Year Biomass Relative to Unfished",
-                    avg.db0 = "Average Biomass Relative to Unfished",
-                    low.dynb0 = "Lowest Biomass Relative to Unfished",
+                    dyn.b0 = "Final Year Relative Biomass",
+                    avg.db0 = "Average Relative Biomass",
+                    low.dynb0 = "Lowest Relative Biomass",
                     stab = "Annual Biomass Variability",
                     low.dep = "Lowest Depletion Level",
-                    prob.below = "Proportion of Years Below Threshold",
-                    prop.closed = "Proportion of Year Fishery is Closed"
+                    prob.below = "Years Below Threshold",
+                    prop.closed = "Years Fishery is Closed"
                 )
             )
     )
@@ -316,11 +317,11 @@ ggplot(perf.data) +
         scale_y_discrete(limits=rev, labels=function(x) str_wrap(x, width=15)) +
         facet_wrap_custom(~metric.long, ncol=3, scale="free_x", shrink=TRUE, scale_overrides = list(
             #scale_override(1, scale_x_continuous(breaks=seq(0, 1000000, 100000),   labels=seq(0, 1000, 100),  limits = c(0, 1000000))),
-            scale_override(1, scale_x_continuous(breaks=seq(0, 50000,  5000),      labels=seq(0, 50, 5),      limits = c(0, 50000))),
+            scale_override(1, scale_x_continuous(breaks=seq(0, 50000,  10000),      labels=seq(0, 50, 10),      limits = c(0, 50000))),
             scale_override(4, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
             scale_override(5, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
             scale_override(6, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
-            scale_override(2, scale_x_continuous(breaks=seq(0, 2.0, 0.25),        labels=seq(0, 2, 0.25),   limits = c(0, 2))),
+            scale_override(2, scale_x_continuous(breaks=seq(0, 2.0, 0.5),        labels=seq(0, 2, 0.5),   limits = c(0, 2))),
             #scale_override(4, scale_x_continuous(breaks=seq(0, 500000, 100000),   labels=seq(0, 500, 100),  limits = c(0, 500000))),
             #scale_override(4, scale_x_continuous(breaks=seq(0, 15, 1),            labels=seq(0, 15, 1),     limits = c(0, 15))),
             #scale_override(5, scale_x_continuous(breaks=seq(0, 7, 1),    labels=seq(0, 7, 1),   limits = c(0, 7))),
@@ -329,19 +330,23 @@ ggplot(perf.data) +
             #scale_override(7, scale_x_continuous(breaks=seq(0, 2.0, 0.1),         labels=seq(0, 2.0, 0.1),  limits = c(0, 2.0))),
             scale_override(7, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
             scale_override(8, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
-            scale_override(3, scale_x_continuous(breaks=seq(0, 1.0, 0.1),         labels=seq(0, 1.0, 0.1),  limits = c(0, 1.0)))
+            scale_override(3, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0)))
         ))+
         labs(x="", y="", title="Performance Metric Summaries")+ 
         theme(
             panel.grid.minor.x = element_blank(),
             legend.position = "none",
             plot.title = element_blank(),
-            strip.text = element_text(size=16),
+            strip.text = element_text(size=15),
             axis.text.x = element_text(size=14),
-            axis.text.y = element_text(size=14)
+            axis.text.y = element_text(size=14),
+            panel.background = element_blank(),
+            strip.background = element_blank(),
+            panel.border = element_rect(fill=alpha("white", 0.0)),
+            panel.spacing.x = unit(0, "cm")
         )
 
-ggsave("/Users/jzahner/Desktop/plot.png")
+ggsave("/Users/jzahner/Desktop/perf_plot.png", width=11, height=8.5)
 
 ## -------------------------------------
 ## Bentley et al. 2003 Objectve Function
