@@ -16,8 +16,8 @@ hcr.levels <- c(
     high.biomass        = "High Threshold",
     evenness            = "Evenness",
     gradient            = "Gradient",
-    three.step.thresh   = "Three Step Threshold",
-    big.fish            = "Big Fish Only",
+    three.step.thresh   = "Three Step",
+    big.fish            = "Big Fish",
     constant.f.00       = "No Fishing"
 )
 
@@ -42,7 +42,7 @@ hcr.colors.named <- c(
     "High Threshold"        = "#9600CC",
     "Evenness"              = "#FF6600",
     "Gradient"              = "#D9B800",
-    "Three Step Threshold"  = "#00D4D4",
-    "Big Fish Only"         = "#F700FF",
+    "Three Step"            = "#00D4D4",
+    "Big Fish"              = "#F700FF",
     "No Fishing"            = "#B3B3B3" 
 )
