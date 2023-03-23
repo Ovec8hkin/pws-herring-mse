@@ -10,8 +10,8 @@ fun_obsm <- function(survey.indices, waa, fec, perc.female, juv.overdisp, sample
   
   set.seed(sim.seed)
 
-  waa <- apply(waa, 2, mean)+c(0, 0, 0, rnorm(7))
-  fec <- c(0, 0, 0, apply(fec[fec[,5]!=-9,4:10], 2, mean))+c(0, 0, 0, rnorm(7))
+  waa <- apply(waa, 2, mean)#+c(0, 0, 0, rnorm(7))
+  fec <- c(0, 0, 0, apply(fec[fec[,5]!=-9,4:10], 2, mean))#+c(0, 0, 0, rnorm(7))
   female <- rnorm(1, mean=mean(perc.female), sd=sd(perc.female))
   
   # Read in predicted survey/fishery values
