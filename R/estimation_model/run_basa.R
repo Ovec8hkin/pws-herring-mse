@@ -53,11 +53,18 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
     if(file.exists("PWS_ASA.tpl")){
       file.remove("PWS_ASA.tpl")
       file.remove("PWS_ASA(par).ctl")
+      file.remove("PWS_ASA")
+      #file.remove("PWS_ASA.PIN")
     }
     file.symlink(paste0(admb.model, ".tpl"), ".")
+    file.symlink(admb.model, ".")
     file.symlink(paste0(basa.root, "PWS_ASA(par).ctl"), ".")
+    #file.symlink(paste0(basa.root, "PWS_ASA.PIN"), ".")
     
-    system("admb -s PWS_ASA", ignore.stdout = TRUE)
+    if(!file.exists("PWS_ASA")){
+        system("admb -s PWS_ASA", ignore.stdout = TRUE)
+    }
+    
     
 
     PWS.ASA.data <- data_reader("PWS_ASA.dat")
@@ -141,9 +148,10 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
     # Switch this out for a call to system2 and check whether the solution
     # is positive definite. Non positive definite errors result in NUTS
     # failures that are non-recoverable.
-    res <- system2("./PWS_ASA", args=c("-pinwrite",  "-hbf",  "1"), stdout=TRUE)
-    if(grepl("positive definite", res[length(res)], fixed=TRUE)){
-        print("Hessian was not positive definite")
+    res <- system2("./PWS_ASA", args=c("-pinwrite",  "-hbf",  "1", "-display", "2"), stdout=TRUE)
+    #print(res)
+    if(grepl("failed to invert hessian", res[length(res)], fixed=TRUE)){
+        print("Hessian failed to invert.")
         return(NULL)
     }
 
@@ -160,28 +168,30 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
 
     start.time <- Sys.time()
     fit.1 <- tryCatch({
-        sample_nuts(model='./PWS_ASA',
+        f <- sample_nuts(model='./PWS_ASA',
                          path=model.dir,
                          init=inits, seeds=seeds, chains=reps, cores=reps,
                          iter=n.iter,
                          warmup=n.warmup,
                          duration=max.duration,
-                         mceval=TRUE,
+                         mceval=FALSE,
                          verbose=FALSE,
-                         control=list(adapt_delta=0.9, metric="mle")
-        ) 
+                         control=list(adapt_delta=0.9, metric="mle"),
+                         admb_args="-display 0"
+        )
     }, error = function(e){
         print("sample_nuts failed with the following error:")
         print(e)
         return(NULL)
     })
-    
-    end.time <- Sys.time()
 
     if(is.null(fit.1)){
       print("fit.1 failed, exiting with NULL")
       return(NULL)
+    }else{
+      system("./PWS_ASA -mceval -display 0") 
     }
+    end.time <- Sys.time()
 
     # Extracts NUTS stats (energy, leapfrog transitions,etc)
     mon <- monitor(fit.1$samples, warmup=fit.1$warmup, print=FALSE)
@@ -218,7 +228,8 @@ run.basa.adnuts <- function(model.dir, seed, n.iter=2000, n.warmup=700, max.dura
     saveRDS(fit.1, file="mcmc_out/NUTS_fit.RDS")
 
     if(reduce.size){
-        files.to.keep <- c("Age3.csv", "EGG.csv", "HYD_ADFG.csv", "HYD_PWSSC.csv", "juv_schools.csv", "MDM.csv", "SpAC.csv", "SeAC.csv", "Num_at_age.csv", "PFRBiomass.csv")
+        files.to.keep <- c("Age3.csv", "EGG.csv", "HYD_ADFG.csv", "HYD_PWSSC.csv", "juv_schools.csv", "MDM.csv", "SpAC.csv", "SeAC.csv", "Num_at_age.csv", "PFRBiomass.csv",
+                        "table_par_posterior_summary.csv", "iterations.csv", "table_convergence_diagnostics.csv")
         mcmc.out.files <- list.files("mcmc_out/")
         files.to.delete <- setdiff(mcmc.out.files, files.to.keep)
         files.to.delete <- paste0(model.dir, "/mcmc_out/", files.to.delete)

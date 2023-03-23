@@ -20,7 +20,7 @@ calculate.ess <- function(age.comps, start.ess, samp.size, ess.its, nyr.fit){
         # Compile and Run PWS_ASA
         if(OS=="MAC"){
             # system("./PWS_ASA -pinwrite -nohess")
-            system("./PWS_ASA -pinwrite", intern=TRUE)
+            system("./PWS_ASA -pinwrite -display 2 -nohess", intern=TRUE)
         }else if(OS=="PC"){
             shell("PWS_ASA  -pinwrite -nohess")
         }

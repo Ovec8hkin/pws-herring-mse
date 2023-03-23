@@ -429,7 +429,7 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
                 }
 
                 # print(paste("Trying with max duration of", max.duration, "minutes."))
-                convergence.diags <- run.basa.adnuts(model.dir, sim.seed, n.iter=1500, n.warmup=500, max.duration = max.duration, n.chains=1)   # This is the important calculation
+                convergence.diags <- run.basa.adnuts(model.dir, sim.seed, n.iter=1200, n.warmup=200, max.duration = max.duration, n.chains=1)   # This is the important calculation
 
                 # Check to make sure we actually generated the expected the number of samples
                 # within the timeframe
