@@ -171,9 +171,8 @@ compute.proportion.big.fish <- function(nya, big.fish.threshold=100){
 
 }
 
-generate.recruitment.deviates <- function(nyr.sim, sim.seed){
+generate.recruitment.deviates <- function(nyr.sim, sim.seed, max.regime.length=15){
   set.seed(sim.seed)
-  max.regime.length <- 15
   
   devs <- rep(NA, nyr.sim)
   sigmas <- rep(NA, nyr.sim)
@@ -487,3 +486,127 @@ run.simulation <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA,
 # biomass <- apply(sim.out.f.00$pop.dyn$prefish.spawn.biomass, 1, sum)
 
 # plot(1:25, biomass, type="l")
+
+run.simulation.simple <- function(hcr.options, nyr.sim, sim.seed=NA, write=NA, 
+                                  start.year=1, stop.year=NA, init.start.year=2021,
+                                  assessment=TRUE, hindcast=TRUE, cr.name="test", max.regime.length=15){
+    # print(write)
+    if(is.na(write)){
+      write <- paste0(here::here("results"), "/test")
+    }
+
+    # Copy over current stock assessment to use for starting values
+    basa.root.dir <- "~/Desktop/Projects/basa/model/"
+    model.0.dir <- basa.root.dir
+    write <- model.0.dir
+
+    # Read in data files JUST ONCE, store then write within code
+    dat.files <- read.data.files(model.0.dir)
+
+    # Read these out of the mcmc_out/*.csv files
+    true.waa <- calculate.waa(dat.files)
+    true.fec <- calculate.fec(dat.files)
+    
+    # Assuming knife-edged selectivity at age-3
+    # Could replace with maturity ogive?
+    fish.selectivity <- matrix(1, nrow=4, ncol=10)
+    fish.selectivity[, 1:3] <- 0 # Selectivity 0 for fish age 0-2
+
+    log.mean.age0 <- read_csv(file.path(model.0.dir, "mcmc_out", "Num_at_age.csv"), col_names = FALSE, show_col_types = FALSE) %>%
+      select(seq(1, 430, 10)) %>%
+      rename_with(~ as.character(1980:2022), everything()) %>%
+      summarise(
+        across(
+          as.character(1980:2022), 
+          \(x) mean(x, na.rm=TRUE)
+        )
+      ) %>%
+      as.matrix %>%
+      as.vector %>%
+      mean %>%
+      log
+
+    # Read in other parameters
+    params <- read.par.file("~/Desktop/Projects/basa/model/PWS_ASA.par")
+
+    par.samples <- read_csv(paste0(model.0.dir, "/mcmc_out/iterations.csv"), show_col_types=FALSE) %>% 
+                na.omit() %>%
+                select(!matches("[0-9]]$")) %>%
+                slice_sample(n=1) %>% as.list
+
+    #par.samples <- set.parameters(write, sim.seed)
+    params[names(par.samples)] <- par.samples
+    params$log_MeanAge0     <- log.mean.age0
+    params$female.spawners  <- tail(dat.files$PWS_ASA.dat$perc.female, 1)
+    params$pk               <- dat.files$PWS_ASA.dat$pk
+    params$waa              <- true.waa
+    params$fec              <- true.fec
+    params$selectivity      <- fish.selectivity
+    params$catch.sd         <- 0.1
+
+    maturity <- calc.maturity(params$mat_par_1, params$mat_par_2)
+
+    # Initialize projection estimates (e.g. from forecast model)
+    pop_dyn <- initialize.popdyn.variables(nyr.sim)
+    #pop_dyn <- set.initial.conditions(write, pop_dyn, maturity, params$waa, sim.seed, init.start.year-1)
+
+    nyr <- init.start.year-1980+1
+    init.nya <- read_csv(paste0(model.0.dir, "mcmc_out/Num_at_age.csv"), col_names=FALSE, show_col_types = FALSE) %>%
+                  select_at(((10*nyr)-9):(10*nyr)) %>%
+                  slice_sample(n=1)
+
+    pop_dyn$true.nya[1, ] <- as.numeric(init.nya)
+
+    # Generate new age-0 recruitment deviates.
+    # Devs are pulled from a regime-based recruitment function.
+    recruitment <- generate.recruitment.deviates(nyr.sim, sim.seed, max.regime.length=max.regime.length)
+    pop_dyn$annual.age0.devs <- recruitment$devs
+    params$sigma_age0devs <- recruitment$sigmas
+    #pop_dyn$annual.age0.devs <- rnorm(nyr.sim, mean=-0.35, sd=0.9) # change this so that the fishery doesn't immediately recover
+    
+
+    # Start loop
+    control.rule <- rep(0, nyr.sim)
+
+    if(is.na(stop.year)){
+      stop.year <- nyr.sim
+    }
+
+    for(y in start.year:stop.year){  
+        #model.dir <- create.model.dir(write, y)
+        #setwd(model.dir)
+
+        true.ssb <- sum(maturity*pop_dyn$true.nya[y, ]*params$waa)
+        true.nya <- pop_dyn$true.nya[y, ]
+
+        # If we want to run the full assessment, then use the assessment estimates in the HCR
+        # calculation. Otherwise, use the deterministic biomass. This is useful for debugging
+        # the operating model quickly (no need to run the whole assessment).
+        hcr.name <- hcr.options$type
+
+        hcr.params <- list(
+              curr.biomass = true.ssb,
+              age.structure = true.nya,
+              rel.biomass = true.ssb/sum(pop_dyn$prefish.spawn.biomass[y-3, ]),
+              options = hcr.options
+            )
+
+        tar_hr <- do.call(hcr.name, c(hcr.params))
+
+        control.rule[y] <- tar_hr
+
+        # Execute fishery following management recommendation
+        catch.at.age <- fun_fish(tar_hr, true.ssb, true.nya, params$waa, params$selectivity, params$catch.sd)
+
+        # Run operating model
+        pop_dyn <- fun_operm(y, pop_dyn$true.nya[y, ], catch.at.age, params, pop_dyn, sim.seed, project=TRUE)
+
+        # Read in the new data files and update the female.spawners param
+        #dat.files <- read.data.files(model.dir)
+        params$female.spawners  <- tail(dat.files$PWS_ASA.dat$perc.female, 1)
+
+        print(paste0(cr.name, " (sim ", sim.seed, "): ", y, "/", stop.year))
+
+    }
+    return(list(pop.dyn=pop_dyn, harvest.rate=control.rule))
+}

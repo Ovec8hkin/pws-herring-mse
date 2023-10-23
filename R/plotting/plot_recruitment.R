@@ -8,15 +8,15 @@ generate.recruitment.deviates <- function(nyr.sim, sim.seed){
   devs <- rep(NA, nyr.sim)
   sigmas <- rep(NA, nyr.sim)
   
-  devs[1:max.regime.length] <- rnorm(max.regime.length, 0.345, 1.140)
-  sigmas[1:max.regime.length] <- rep(1.140, max.regime.length)
+  devs[1:max.regime.length] <- rnorm(max.regime.length, 0.0645, 1.35)
+  sigmas[1:max.regime.length] <- rep(1.20, max.regime.length)
   
   high.regime <- TRUE
   for(y in 1:(nyr.sim-max.regime.length)){
     if(y %% max.regime.length == 0) high.regime <- !high.regime
     
-    dev <- ifelse(high.regime == 1, rnorm(1, -1.289, 0.961), rnorm(1, 0.345, 1.140))
-    sig <- ifelse(high.regime == 1, 0.961, 1.140)
+    dev <- ifelse(high.regime == 1, rnorm(1, -1.270, 1.05), rnorm(1, 0.0645, 1.35))
+    sig <- ifelse(high.regime == 1, 1.05, 1.35)
     
     devs[y+max.regime.length] <- dev
     sigmas[y+max.regime.length] <- sig
@@ -35,10 +35,13 @@ nyr <- length(years)
 
 model.dir <- "/Users/jzahner/Desktop/Projects/basa/model/"#here::here("results/base/sim_649/year_0/model/")
 
-sim.rec.devs <- generate.recruitment.deviates(30, 2256)$devs
+sim.rec.devs <- generate.recruitment.deviates(30, 0168)$devs
+sim.age0.recs <- exp(5.7276+sim.rec.devs)
+sim.age3.recs <- sim.age0.recs*exp(-0.25)^3
+
 sim.rec.devs.df <- data.frame(
   year=as.character(rep(curr.year:(curr.year+30-1), 2)),
-  recruits=rep(exp(4.844+sim.rec.devs), 2),
+  recruits=rep(sim.age3.recs, 2),
   .lower=0,
   .upper=0,
   .width=rep(c(0.50, 0.95), each=length(curr.year:(curr.year+30-1))),
@@ -75,7 +78,7 @@ ggplot(recruit.df) +
     #geom_lineribbon(aes(x=year, y=recruits, ymin=.lower, ymax=.upper, group=1), size=0.75)+
     geom_line(data=recruit.df %>% filter(.width==0.5), aes(x=year, y=recruits, color=regime, group=1), size=0.75)+
     geom_vline(xintercept=43, linetype="longdash")+
-    geom_hline(yintercept=exp(4.844), linetype="dotted")+
+    geom_hline(yintercept=exp(5.7276)*exp(-0.25)^3, linetype="dotted")+
     scale_fill_grey(start=0.8, end=0.6)+
     geom_segment(
       data=median.lines.df, 

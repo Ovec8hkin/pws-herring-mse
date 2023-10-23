@@ -168,7 +168,7 @@ fs.df <- fs.df %>% pivot_longer(
 
 fs.df$control.rule <- factor(fs.df$control.rule,
                               levels=c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "three.step.thresh", "big.fish", "constant.f.00"),
-                              labels=c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold", "Three Step Threshold", "Big Fish Only", "No Fishing"))
+                              labels=c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold", "Three Step", "Big Fish", "No Fishing"))
 
 
 fs.names <- data.frame(control.rule=unique(fs.df$control.rule), cr.name=c("Default", "Low Threshold", "High Threshold", "High Harvest", "Low Harvest", "Three Step\nThreshold", "Big Fish Only\n(>110g)", "No Fishing"))
@@ -197,6 +197,8 @@ simple.cr.plot <- ggplot(fs.df, aes(x=biomass, y=harvest.rate, color=control.rul
           axis.title.y = element_text(face="bold", size=14),
           plot.title = element_blank()
      )
+
+ggsave("/Users/jzahner/Desktop/hcrs.png", height=8, units="in")
 
 grad.plot.sing <- gradient.plot$p+
      scale_fill_gradient(low="white", high="red", na.value = "transparent", name="Harvest Rate")+

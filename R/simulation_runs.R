@@ -36,14 +36,14 @@ run.mse <- function(cr, cr.name, seed, start.year=1, hindcast=FALSE){
 
 #clean.results.dir()
 
-nyr.sim <- 35
-total.sims <- 7
+nyr.sim <- 30
+total.sims <- 1
 
-set.seed(1)
-seeds <- sample(1:1e4, size=total.sims)
+set.seed(99)
+#seeds <- sample(1:1e4, size=total.sims) # 5552 7457 2294 2922 7102 3200  358 8973 9188 7071
+#seeds <- c(2922)
 
-
-seeds <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 2512, 3169, 3709, 4288, 4716, 4775, 6460, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
+seeds <- c(197, 649, 1017, 1094, 1144, 1787, 1998)#, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 2512, 3169, 3709, 4288, 4716, 4775, 6460, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
 control.rules <- list(
     base                = list(type="hcr.threshold.linear",      lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.20),
     high.harvest        = list(type="hcr.threshold.linear",      lower.threshold=19958, upper.threshold=38555, min.harvest = 0.0, max.harvest=0.40),
@@ -69,14 +69,17 @@ cores <- parallel::detectCores()
 cl <- makeCluster(min(cores[1]-1, as.integer(total.sims/1)), outfile="")
 registerDoParallel(cl)
 
+tic()
 foreach(i=1:total.sims) %dopar% {
     seed <- cr.seed.combs[i, 1]
     cr.name <- cr.seed.combs[i, 2]
     cr <- control.rules[[cr.name]]
     
-    mse <- run.mse(cr, cr.name, seed, start.year=25)
+    mse <- run.mse(cr, cr.name, seed, start.year=1)
     
 }
+toc()
+
 unregister_dopar()
 stopCluster(cl)
 

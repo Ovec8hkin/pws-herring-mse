@@ -24,36 +24,49 @@ reformat.metric.df <- function(metric.name){
     )
 }
 
-nyr <- 25
+nyr <- 30
 years <- seq(1980, 1980+42+nyr-1)
 
-sims <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 3169, 3709, 4288, 4716, 4775, 6460, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
+#sims <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 3169, 3709, 4288, 4716, 4775, 6460, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
+set.seed(1120)
+sims <- sample(1e4, 150)
 hcr.names <- c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "constant.f.00", "evenness", "gradient", "three.step.thresh", "big.fish")
 
-cores <- parallel::detectCores()
-cl <- makeCluster(min(cores[1]-1, length(hcr.names)), outfile="")
-registerDoParallel(cl)
+# cores <- parallel::detectCores()
+# cl <- makeCluster(min(cores[1]-1, length(hcr.names)), outfile="")
+# registerDoParallel(cl)
 
-bio.traj.df <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
-    source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
-    biomass.dat <- read.true.biomass.data(cr, seeds, nyr)
-}, seeds=sims, nyr=nyr, cl=cl)
-bio.traj.df <- bind_rows(bio.traj.df)
+# bio.traj.df <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
+#     source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
+#     biomass.dat <- read.true.biomass.data(cr, seeds, nyr)
+# }, seeds=sims, nyr=nyr, cl=cl)
+# bio.traj.df <- bind_rows(bio.traj.df)
 
-catch.data <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
-    source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
-    biomass.dat <- read.catch.data(cr, seeds, nyr)
-}, seeds=sims, nyr=nyr, cl=cl)
-catch.data <- bind_rows(catch.data)
+# catch.data <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
+#     source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
+#     biomass.dat <- read.catch.data(cr, seeds, nyr)
+# }, seeds=sims, nyr=nyr, cl=cl)
+# catch.data <- bind_rows(catch.data)
 
-unregister_dopar()
-stopCluster(cl)
+# #unregister_dopar()
+# stopCluster(cl)
 
-aav <- function(catches){
-    total.catch <- sum(catches)
-    catch.diffs <- abs(diff(catches))
-    aav <- mean((sum(catch.diffs)/total.catch))
-    return(ifelse(is.nan(aav), 0, aav))
+good.sims <- get.good.sims()
+
+catch.data <- read_csv(file.path(here::here(), "results", "om_catch.csv"), col_names=TRUE, show_col_types=FALSE) %>%
+    select(year, catch, fishery, control.rule, sim) %>%
+    filter(sim %in% good.sims)  %>%
+    print(n=10)
+bio.traj.df <- read_csv(file.path(here::here(), "results", "om_biomass.csv"), col_names = TRUE, show_col_types = FALSE) %>%
+    select(year, biomass, control.rule, sim) %>%
+    filter(sim %in% good.sims)  %>%
+    print(n=10)
+
+aav <- function(data){
+    total <- mean(data)
+    diffs <- abs(diff(data))
+    aav <- sum(diffs/total)/(length(data)-1)
+    return(ifelse(is.nan(aav), 0, aav)) # If all data is 0, return 0 rather than NA
 }
 
 aav.df <- catch.data %>% na.omit() %>% 
@@ -94,6 +107,22 @@ biomass.df <- as_tibble(bio.traj.df) %>% na.omit() %>%
                 relocate(c(control.rule, sim, biomass, depletion, dyn.b0)) %>%
                 print(n=10)
 
+avg.biomass.df <- as_tibble(bio.traj.df) %>% na.omit() %>%                      # Remove NAs
+                    left_join(
+                      as_tibble(bio.traj.df) %>% na.omit() %>%                          
+                        filter(control.rule == "constant.f.00") %>%
+                        rename(no.fish.biomass = biomass) %>%
+                        select(c(sim, no.fish.biomass)),
+                      by = c("sim")
+                    ) %>%
+                    group_by(control.rule, sim) %>%                             # Group
+                    summarise(
+                        avg.bio = median(biomass),                              # Median biomass across entire sim
+                        avg.dep = avg.bio/40000,                                # Median depletion across entire sim
+                        avg.db0 = median(biomass/no.fish.biomass)
+                    ) %>%
+                    print(n=10)
+
 average.catch.df <- catch.data %>% na.omit() %>%
                         group_by(control.rule, sim) %>%
                         summarise(
@@ -106,6 +135,7 @@ catch.biomass.df <- biomass.df %>%
                     inner_join(average.catch.df, by=c("control.rule", "sim")) %>%
                     inner_join(aav.df, by=c("control.rule", "sim")) %>%
                     inner_join(prob.threshold.df, by=c("control.rule", "sim")) %>%
+                    inner_join(avg.biomass.df, by=c("control.rule", "sim")) %>%
                     mutate(control.rule=recode_factor(control.rule, !!!hcr.levels))
 
 
@@ -113,7 +143,7 @@ catch.biomass.df <- as_tibble(catch.biomass.df) %>%
                         select(-c(n, n.below)) %>%
                         group_by(control.rule) %>%
                         median_qi(
-                            tot_catch, ann_catch, biomass, depletion, aav, prob.below, dyn.b0,
+                            tot_catch, ann_catch, biomass, depletion, aav, prob.below, dyn.b0, avg.db0,
                             .width=c(0.5, 0.80)
                         )
 catch.biomass.df$cr <- factor(catch.biomass.df$control.rule, 
@@ -128,7 +158,8 @@ tradeoff.df.long <- reformat.metric.df("ann_catch") %>%
                             reformat.metric.df("depletion"),
                             reformat.metric.df("aav"),
                             reformat.metric.df("prob.below"),
-                            reformat.metric.df("dyn.b0")
+                            reformat.metric.df("dyn.b0"),
+                            reformat.metric.df("avg.db0")
                         )
 
 fit.tradeoff.line <- function(formula, xrange, name){
@@ -159,22 +190,24 @@ generate.tradeoff.plot <- function(vars){
 
     axis.breaks <- list(
         tot_catch = seq(-50000, 550000, 50000),
-        ann_catch = seq(-5000, 30000, 5000),
+        ann_catch = seq(-5000, 20000, 5000),
         biomass = seq(-10000, 160000, 10000),
         depletion = seq(-1, 5, 1),
         aav = round(seq(1.2, -0.2, -0.2), 2),
         prob.below = seq(0.5, 0, -0.05),
-        dyn.b0 = seq(-0.2, 1.2, 0.2)
+        dyn.b0 = seq(0.2, 1.2, 0.2),
+        avg.db0 = seq(0.2, 1.2, 0.2)
     )
 
     axis.labels <- list(
         tot_catch = seq(-50, 550, 50),
-        ann_catch = seq(-5, 30, 5),
+        ann_catch = seq(-5, 20, 5),
         biomass = seq(-10, 160, 10),
         depletion = seq(-1, 5, 1),
         aav = round(seq(1.2, -0.2, -0.2), 2),
         prob.below = seq(0.5, 0, -0.05),
-        dyn.b0 = seq(-0.2, 1.2, 0.2)
+        dyn.b0 = seq(0.2, 1.2, 0.2),
+        avg.db0 = seq(0.2, 1.2, 0.2)
     )
 
     metric.names <- list(
@@ -194,7 +227,8 @@ generate.tradeoff.plot <- function(vars){
         depletion = "Final Year Depletion",
         aav = "Catch Variation",
         prob.below = "Proportion of Years Below Threshold",
-        dyn.b0 = "Biomass Relative to Unfished"
+        dyn.b0 = "Relative Biomass",
+        avg.db0 = "Relative Biomass"
 
     )
 
@@ -235,13 +269,13 @@ generate.tradeoff.plot <- function(vars){
             theme(
                 axis.line.x = element_line(),
                 axis.line.y = element_line(),
-                axis.text = element_text(size=14),
-                axis.title = element_text(size=18, face="bold"),
+                axis.text = element_text(size=15),
+                axis.title = element_text(size=22, face="bold"),
                 plot.title = element_blank(),
                 panel.grid.minor = element_blank()
             )
 
-    show(plot)
+    #show(plot)
 
     return(plot)
 }
@@ -257,9 +291,10 @@ generate.utility.plot <- function(vars){
     d <- d1 %>% inner_join(d2, by=c("control.rule", ".width"))
 
     bounds <- list(
-        ann_catch = c(0, 25000),
+        ann_catch = c(0, 15000),
         depletion = c(0, 4),
-        dyn.b0 = c(0, 1),
+        dyn.b0 = c(0.4, 1),
+        avg.db0 = c(0.4, 1),
         aav = c(0, 1)
     )
 
@@ -283,7 +318,7 @@ generate.utility.plot <- function(vars){
                 geom_label_contour(aes(x=x, y=y, fill=total.util, z=total.util), breaks=c(0.25, 0.50, 0.75, 1.0), skip=0, label.placer=label_placer_fraction(0.5))+
                 geom_point(data=d, aes(x=median.x, y=median.y, color=control.rule), size=4)+
                 scale_color_manual(values=hcr.colors.named, name="Control Rule") +
-                scale_fill_gradient("Utility", low="white", high="red")+
+                scale_fill_gradient("Utility", low="white", high="red", limits=c(0, 1))+
                 coord_cartesian(expand=0)+
                 guides(color="none")+
                 theme(
@@ -331,8 +366,8 @@ generate.fake.plot <- function(bounds, name, strip.x=TRUE, strip.y=TRUE, rev="no
         labs(x=name, y=name)+
         theme(
             panel.background = element_blank(),
-            axis.text = element_text(size=14),
-            axis.title = element_text(size=18, face="bold")
+            axis.text = element_text(size=15),
+            axis.title = element_text(size=22, face="bold")
         )
 
     if(strip.x){
@@ -359,24 +394,27 @@ generate.fake.plot <- function(bounds, name, strip.x=TRUE, strip.y=TRUE, rev="no
 
 }
 
-dvc.trade.plot <- generate.tradeoff.plot(c("ann_catch", "dyn.b0"))
-dvv.trade.plot <- generate.tradeoff.plot(c("dyn.b0", "aav"))
+library(metR)
+
+dvc.trade.plot <- generate.tradeoff.plot(c("ann_catch", "avg.db0"))
+dvv.trade.plot <- generate.tradeoff.plot(c("avg.db0", "aav"))
 cvv.trade.plot <- generate.tradeoff.plot(c("ann_catch", "aav"))
 
-cvd.util.plot <- generate.utility.plot(c("ann_catch", "dyn.b0"))
+cvd.util.plot <- generate.utility.plot(c("ann_catch", "avg.db0"))
 cvv.util.plot <- generate.utility.plot(c("ann_catch", "aav"))
-dvv.util.plot <- generate.utility.plot(c("dyn.b0", "aav"))
+dvv.util.plot <- generate.utility.plot(c("avg.db0", "aav"))
 
-fake.1 <- generate.fake.plot(c(0, 25), name="Annual Catch", strip.y=FALSE)
-fake.2 <- generate.fake.plot(c(0, 4), name="Biomass Relative to Unfished")
+fake.1 <- generate.fake.plot(c(0, 15), name="Annual Catch", strip.y=FALSE)
+fake.2 <- generate.fake.plot(c(0, 4), name="Relative Biomass")
 fake.3 <- generate.fake.plot(c(1, 0), name="Catch Variation", strip.x=FALSE, rev="x")
 
 (fake.1                                 + strip.gg.axes(cvd.util.plot)              + strip.gg.axes(cvv.util.plot)) /
 (strip.gg.axes(dvc.trade.plot, y=FALSE) + fake.2                                    + strip.gg.axes(dvv.util.plot)) /
 (cvv.trade.plot                         + strip.gg.axes(dvv.trade.plot, x=FALSE)    + fake.3) +
-plot_layout(guides="collect")
+plot_layout(guides="collect")#+plot_annotation(tag_levels = "A")
 
-ggsave("/Users/jzahner/Desktop/tradeoffs.png", width=12, height=12)
+ggsave(file.path(here::here(), "figures", "tradeoff.png"), dpi=300, width=14, height=12, units="in")
+ggsave(file.path(here::here(), "figures", "present", "tradeoff.png"), dpi=300, width=14, height=12, units="in")
 
 (dvc.trade.plot| dvv.trade.plot| cvv.trade.plot) + plot_layout(guides="collect") & theme(legend.position="top-right")
 

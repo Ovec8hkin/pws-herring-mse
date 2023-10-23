@@ -8,14 +8,12 @@ source(paste0(here::here("R/utils/"), "fun_read_dat.R"))
 b.star <- 40000
 f.star <- 0.20
 
-total.sims <- 5
-
 set.seed(1998)
-sims <- c(197, 649, 1998, 2078, 2255, 2386, 3709, 4716, 8388, 8904, 9716)
+seeds <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 2512, 3169, 3709, 4050, 4288, 4716, 4775, 6460, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
 
 #hcr.names <- c("base", "high.harvest", "low.harvest", "high.biomass", "low.biomass", "constant.f.00")
 nyr <- 25
-sims <- c(197, 2255, 2386, 3709, 4716, 8388, 8904, 8634, 8935, 1094, 4288)
+sims <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 2512, 3169, 3709, 4288, 4716, 4775, 7251, 7915, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
 
 control.rules <- c("base", "high.harvest", "low.harvest", "high.biomass", "low.biomass", "evenness", "gradient", "three.step.thresh", "big.fish", "constant.f.00")
 
@@ -25,7 +23,7 @@ for(c in control.rules){
         print(s)
         model.dir <- paste0(here::here("results/"), c, "/sim_", s, "/year_", nyr, "/model/")
 
-        biomass.estimates <- read.biomass.estimates(model.dir)
+        biomass.estimates <- read.true.biomass.data(model.dir)
         exploit.rate.estimates <- read.exploit.rates(model.dir)
 
         biomass.est.rel <- as_tibble(biomass.estimates/b.star) %>% pivot_longer(everything(), "year", values_to="biomass")
@@ -40,13 +38,26 @@ for(c in control.rules){
     }
 }
 
+cores <- parallel::detectCores()
+cl <- makeCluster(min(cores[1]-1, length(hcr.names)), outfile="")
+registerDoParallel(cl)
+
+exploit.data <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
+    source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
+    e = read.true.exploit.rates(cr, seeds, nyr)
+}, seeds=seeds, nyr=nyr, cl=cl)
+exploit.data <- bind_rows(exploit.data)
+
+unregister_dopar()
+stopCluster(cl)
+
 data$year <- as.numeric(data$year)
 
-data.df <- data %>% na.omit() %>%
-            group_by(year, cr) %>%
+data.df <- exploit.data %>% na.omit() %>%
+            group_by(year, control.rule) %>%
             summarise(
                 biomass = median(biomass),
-                exploit=median(exploit)
+                exploit = median(exploit)
             ) %>%
             print(n=10)
 
@@ -68,31 +79,33 @@ kobe.plot <- ggplot(data.df[data.df$year >= 2022, ])+
     coord_cartesian(xlim=c(0, 4), ylim=c(0, 2), expand=FALSE)
 
 for(c in control.rules){
-    kobe.plot <- kobe.plot + geom_segment(data=data.df[data.df$year >= 2022 & data.df$cr==c,], aes(x=biomass, y=exploit, color=cr, xend=c(tail(biomass, n=-1), NA), yend=c(tail(exploit, n=-1), NA), group=cr), arrow=arrow(length=unit(0.5, "cm")))
+    kobe.plot <- kobe.plot + geom_segment(data=data.df[data.df$year >= 2022 & data.df$control.rule==c,], aes(x=biomass, y=exploit, color=control.rule, xend=c(tail(biomass, n=-1), NA), yend=c(tail(exploit, n=-1), NA), group=control.rule), arrow=arrow(length=unit(0.5, "cm")))
 }
 
 n.tot <- 600*total.sims
 
 kobe.plot
 
-kobe.df <- data %>% 
+kobe.df <- exploit.data %>% 
                 mutate(
-                    kobe.color = ifelse(
-                        data$biomass < 1 & data$exploit > 1,
-                        "red",
-                        ifelse(
-                            data$biomass > 1 & data$exploit < 1,
-                            "green",
-                            ifelse(
-                                data$biomass < 1 & data$exploit < 1,
-                                "orange",
-                                "yellow"
-                            )
-                        )
-                    )
+                    biomass = biomass/b.star,
+                    exploit = exploit/f.star,
+                    # kobe.color = ifelse(
+                    #     exploit.data$biomass < 1 & exploit.data$exploit > 1,
+                    #     "red",
+                    #     ifelse(
+                    #         exploit.data$biomass > 1 & exploit.data$exploit < 1,
+                    #         "green",
+                    #         ifelse(
+                    #             exploit.data$biomass < 1 & exploit.data$exploit < 1,
+                    #             "orange",
+                    #             "yellow"
+                    #         )
+                    #     )
+                    # )
                 ) %>% 
                 na.omit() %>%
-                group_by(year, cr, kobe.color) %>%
+                group_by(year, control.rule, kobe.color) %>%
                 summarise(
                     n=n()
                 ) %>%

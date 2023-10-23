@@ -1,0 +1,151 @@
+
+b.lim <- 19958
+b.tar <- 38555
+
+f.min <- 0
+f.max <- 0.2
+
+biomass <- seq(0, 60000, by=50)
+
+compute.f.thresh <- function(biomass, b.lim=19956, b.tar=38555, f.min=0, f.max=0.2){
+    f <- 0
+    if(biomass <= b.lim){
+        f <- f.min
+    }else if( biomass > b.lim && biomass <= b.tar){
+        f <- (biomass - b.lim) * f.max / (b.tar - b.lim)
+    }else{
+        f <- f.max
+    }
+
+    return(f)
+}
+
+compute.f.constant <- function(biomass, f.rate){
+    return(f.rate)
+}
+
+compute.catch.constant <- function(biomass, catch){
+    return(catch/biomass)
+}
+
+fs <- apply(matrix(biomass), 1, compute.f.thresh)
+
+par(mar=c(5,6,4,2.5)+0.1)
+plot(biomass, fs, type="l", ylim=c(0, 0.5), col="black", lwd=6,
+     ylab="Fishing Mortality Rate (F)", xlab="Spawning Stock Biomass (1000 mt)",
+     yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.75)
+abline(v=b.lim, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+abline(v=b.tar, col=rgb(0.5, 0.5, 0.5), lwd=4, lty=2)
+text(x=b.lim+4000, y=0.4, expression(bold("B"["limit"])), cex=2.00)
+text(x=b.tar+4000, y=0.4, expression(bold("B"["target"])), cex=2.00)
+title(main="PWS Herring Harvest Control Rule", cex.main=2.25)
+axis(1, at=seq(0, 60000, 10000), labels=seq(0, 60, 10), cex.axis=1.75)
+axis(2, at=seq(0, 0.5, 0.1), labels=seq(0, 0.5, 0.1), cex.axis=1.75)
+
+
+fs.base             <- apply(matrix(biomass), 1, compute.f.thresh)
+fs.high.harvest     <- apply(matrix(biomass), 1, compute.f.thresh, f.max=0.3)
+fs.low.harvest      <- apply(matrix(biomass), 1, compute.f.thresh, f.max=0.15)
+fs.low.b0           <- apply(matrix(biomass), 1, compute.f.thresh, b.lim=10000, b.tar=30000)
+fs.low.thresh       <- apply(matrix(biomass), 1, compute.f.thresh, b.lim=10000)
+fs.high.b0          <- apply(matrix(biomass), 1, compute.f.thresh, b.lim=30000, b.tar=50000)
+fs.high.thresh      <- apply(matrix(biomass), 1, compute.f.thresh, b.lim=30000)
+fs.constant.f.00    <- apply(matrix(biomass), 1, compute.f.constant, f.rate=0.0)
+
+
+fs.constant.f.20    <- apply(matrix(biomass), 1, compute.f.constant, f.rate=0.2)
+catch.constant.1000 <- apply(matrix(biomass), 1, compute.catch.constant, catch=1000)
+
+control.rule.names <- c("Current", "High F", "Low F", "Lower B0", "Low Biomass", "Higher B0", "High Biomass", "No Fishing")
+
+control.rule.df <- data.frame(biomass=rep(biomass, 8),
+                              control.rule=rep(control.rule.names, each=length(biomass)),
+                              f.rate=c(fs.base, fs.high.harvest, fs.low.harvest, fs.low.b0, fs.low.thresh, fs.high.b0, fs.high.thresh, fs.constant.f.00),
+                              limit.thresh=rep(c(19958, 19958, 19958, 10000, 19958, 30000, 30000, 100000), each=length(biomass)),
+                              target.thresh=rep(c(38555, 38555, 38555, 30000, 38555, 50000, 38555, 100000), each=length(biomass)))
+
+control.rule.df$control.rule <- factor(control.rule.df$control.rule, levels=control.rule.names)
+hcr.df.2 <- control.rule.df
+hcr.df.2$rule <- hcr.df.2$control.rule
+hcr.df.2 <- subset(hcr.df.2, select=-c(control.rule))
+
+ggplot(control.rule.df)+
+    geom_line(aes(x=biomass, y=f.rate, color=control.rule), size=2)+
+    geom_line(data=hcr.df.2, aes(x=biomass, y=f.rate, color=rule), alpha=0.1, size=2)+
+    geom_vline(aes(xintercept=limit.thresh, color=control.rule), linetype = "longdash")+
+    geom_vline(aes(xintercept=target.thresh, color=control.rule), linetype = "longdash")+
+    ylim(0, 0.4)+
+    xlim(0, 60000)+
+    scale_color_manual(values=c("black", "red", "blue", "#00A600", "#530d7e", "#E97902", "#AF0092", "#A6A6A6"))+
+    facet_wrap(~control.rule)+
+    labs(x="Spawning Biomass", y="Fishing Rate", title="Candidate Harvest Control Rules", color="Control Rule")
+
+b.lim <- 10000
+b.tar <- 38555
+
+light.alpha <- 0.35
+full.alpha  <- 1.0
+
+control.rules <- list(fs.base, fs.high.harvest, fs.low.harvest, fs.low.b0, fs.low.thresh, fs.high.b0, fs.high.thresh, fs.constant.f.00)
+colors <- c("black", "red", "blue", "#00A600", "#530d7e", "#E97902", "#AF0092", "#A6A6A6")
+b.lim  <- c(19958, 19958, 19958, 10000, 19958, 30000, 30000, 100000)
+b.tar <- c(38555, 38555, 38555, 30000, 38555, 50000, 38555, 100000)
+hcr.names <- c("Current HCR", "High F HCR", "Low F HCR", "Lower B0 HCR", "Low Biomass HCR", "Higher B0 HCR", "High Biomass HCR", "No Fishing")
+
+vals <- 1:8
+
+for(i in vals){
+
+    cr <- control.rules[[i]]
+    color <- colors[i]
+    lim <- b.lim[i]
+    tar <- b.tar[i]
+    name <- hcr.names[i]
+
+    par(mar=c(5,6,4,2.5)+0.1)
+    plot(biomass, rep(NA, length(biomass)), type="l", ylim=c(0, 0.5), col=alpha("black", light.alpha), lwd=6,
+        ylab="Fishing Mortality Rate (F)", xlab="Spawning Stock Biomass (1000 mt)",
+        yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.5, font.lab=2)
+    lines(biomass, cr,             lwd=6, col=alpha(color,   full.alpha))
+    abline(v=lim, col=alpha(color, 0.5), lwd=4, lty=2)
+    abline(v=tar, col=alpha(color, 0.5), lwd=4, lty=2)
+    text(x=lim+4000, y=0.4, expression(bold("B"["limit"])), cex=2.00)
+    text(x=tar-5000, y=0.45, expression(bold("B"["target"])), cex=2.00)
+    text(x=48000, y=max(cr)+0.02, name, cex=1.75, font=2)
+
+    others <- which(!(vals %in% c(i)))
+
+    for(o in others){
+        lines(biomass, control.rules[[o]], lwd=6, col=alpha(colors[o], light.alpha))   
+    }
+    
+    title(main="Candidate Harvest Control Rules", cex.main=2.25)
+    axis(1, at=seq(0, 60000, 10000), labels=seq(0, 60, 10), cex.axis=1.75, font=2, lwd=2)
+    axis(2, at=seq(0, 0.5, 0.1), labels=seq(0, 0.5, 0.1), cex.axis=1.75, font=2, lwd=2)
+    
+}
+
+
+
+# par(mar=c(5,6,4,2.5)+0.1)
+#     plot(biomass, rep(NA, length(biomass)), type="l", ylim=c(0, 0.5), col=alpha("black", light.alpha), lwd=6,
+#         ylab="Fishing Mortality Rate (F)", xlab="Spawning Stock Biomass (1000 mt)",
+#         yaxs="i", xaxs="i", ax=FALSE, cex.lab=1.5, font.lab=2)
+#     lines(biomass, fs.base,             lwd=6, col=alpha("black",   light.alpha))
+
+    
+#     lines(biomass, fs.high.harvest,     lwd=6, col=alpha("red",     light.alpha))
+#     lines(biomass, fs.low.harvest,      lwd=6, col=alpha("blue",    light.alpha))
+#     lines(biomass, fs.low.b0,           lwd=6, col=alpha("#00A600", full.alpha))
+#     lines(biomass, fs.low.thresh,       lwd=6, col=alpha("#530d7e", light.alpha))
+#     lines(biomass, fs.high.b0,          lwd=6, col=alpha("#E97902", light.alpha))
+#     lines(biomass, fs.high.thresh,      lwd=6, col=alpha("#AF0092", light.alpha))
+#     lines(biomass, fs.constant.f.00,    lwd=6, col=alpha("#A6A6A6", light.alpha))
+#     abline(v=b.lim, col=alpha("black", 0.5), lwd=4, lty=2)
+#     abline(v=b.tar, col=alpha("black", 0.5), lwd=4, lty=2)
+#     text(x=b.lim+4000, y=0.4, expression(bold("B"["limit"])), cex=2.00)
+#     text(x=b.tar-5000, y=0.45, expression(bold("B"["target"])), cex=2.00)
+#     title(main="Candidate Harvest Control Rules", cex.main=2.25)
+#     axis(1, at=seq(0, 60000, 10000), labels=seq(0, 60, 10), cex.axis=1.75, font=2, lwd=2)
+#     axis(2, at=seq(0, 0.5, 0.1), labels=seq(0, 0.5, 0.1), cex.axis=1.75, font=2, lwd=2)
+#     text(x=48000, y=0.22, "Lower B0 HCR", cex=1.75, font=2)

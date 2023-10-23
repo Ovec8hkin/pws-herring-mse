@@ -12,9 +12,9 @@ source(file=paste0(here::here("R/plotting/"), "ggplot_facet_scaling.R"))
 ##        (assumed to be in order by year)
 ## ----------------------------------------------- 
 aav <- function(data){
-    total <- sum(data)
+    total <- mean(data)
     diffs <- abs(diff(data))
-    aav <- mean((sum(diffs)/total))
+    aav <- sum(diffs/total)/(length(data)-1)
     return(ifelse(is.nan(aav), 0, aav)) # If all data is 0, return 0 rather than NA
 }
 
@@ -40,12 +40,12 @@ reformat.metric.df <- function(metric.name){
     )
 }
 
-set.seed(1)
-seeds <- sample(1e4, 40)#c(1017, 4775, 9725, 8462, 8789, 8522, 1799, 8229, 1129, 878, 7845, 5922, 6526, 5071, 4650, 2159, 3476, 2580, 1530, 7289, 4633, 4344, 1222, 2858, 5400, 526, 1069)
-nyr <- 25
+set.seed(1120)
+seeds <- sample(1e4, 150)#c(1017, 4775, 9725, 8462, 8789, 8522, 1799, 8229, 1129, 878, 7845, 5922, 6526, 5071, 4650, 2159, 3476, 2580, 1530, 7289, 4633, 4344, 1222, 2858, 5400, 526, 1069)
+nyr <- 30
 hcr.names <- c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "constant.f.00", "evenness", "gradient", "three.step.thresh", "big.fish")
 
-seeds <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 2512, 3169, 3709, 4050, 4288, 4716, 4775, 6460, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
+#seeds <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386, 2512, 3169, 3709, 4050, 4288, 4716, 4775, 6460, 7251, 7915, 8004, 8388, 8462, 8634, 8789, 8904, 8935, 9204, 9260, 9716, 9725)
 
 ## NOTE THAT IF SOME SIMULATIONS FAILED AT SOME STAGE
 ## BIOMASS AND CATCH DATA FROM THAT SIMULATION SEED
@@ -54,24 +54,35 @@ seeds <- c(197, 649, 1017, 1094, 1144, 1787, 1998, 2078, 2214, 2241, 2255, 2386,
 #bio.traj.df <- data.frame(year=NA, biomass=NA, control.rule=NA, sim=NA)
 #catch.data <- data.frame(year=NA, catch=NA, fishery=NA, control.rule=NA, sim=NA)
 
-cores <- parallel::detectCores()
-cl <- makeCluster(min(cores[1]-1, length(hcr.names)), outfile="")
-registerDoParallel(cl)
+# cores <- parallel::detectCores()
+# cl <- makeCluster(min(cores[1]-1, length(hcr.names)), outfile="")
+# registerDoParallel(cl)
 
-bio.traj.df <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
-    source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
-    biomass.dat <- read.true.biomass.data(cr, seeds, nyr)
-}, seeds=seeds, nyr=nyr, cl=cl)
-bio.traj.df <- bind_rows(bio.traj.df)
+# bio.traj.df <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
+#     source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
+#     biomass.dat <- read.true.biomass.data(cr, seeds, nyr)
+# }, seeds=seeds, nyr=nyr, cl=cl)
+# bio.traj.df <- bind_rows(bio.traj.df)
 
-catch.data <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
-    source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
-    biomass.dat <- read.catch.data(cr, seeds, nyr)
-}, seeds=seeds, nyr=nyr, cl=cl)
-catch.data <- bind_rows(catch.data)
+# catch.data <- pbapply::pblapply(hcr.names, function(cr, seeds, nyr){
+#     source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
+#     biomass.dat <- read.catch.data(cr, seeds, nyr)
+# }, seeds=seeds, nyr=nyr, cl=cl)
+# catch.data <- bind_rows(catch.data)
 
-unregister_dopar()
-stopCluster(cl)
+# #unregister_dopar()
+# stopCluster(cl)
+
+good.sims <- get.good.sims()
+
+catch.data <- read_csv(file.path(here::here(), "results", "om_catch.csv"), col_names=TRUE, show_col_types=FALSE) %>%
+    select(year, catch, fishery, control.rule, sim) %>%
+    filter(sim %in% good.sims)  %>%
+    print(n=10)
+bio.traj.df <- read_csv(file.path(here::here(), "results", "om_biomass.csv"), col_names = TRUE, show_col_types = FALSE) %>%
+    select(year, biomass, control.rule, sim) %>%
+    filter(sim %in% good.sims)  %>%
+    print(n=10)
 
 # for(cr in hcr.names){
 #     print(cr)
@@ -100,8 +111,8 @@ limit.thresholds <- list(
     "base" = 19958,
     "low.harvest" = 19958,
     "high.harvest" = 19958,
-    "low.threshold" = 10000,
-    "high.threshold" = 30000,
+    "low.biomass" = 10000,
+    "high.biomass" = 30000,
     "evenness" = 19958,
     "gradient" = 19958,
     "three.step.thresh" = 19958,
@@ -247,7 +258,7 @@ catch.biomass.df <- as_tibble(catch.biomass.df) %>%
                         group_by(control.rule) %>%
                         median_qi(
                             ann_catch, dyn.b0, avg.db0, low.dynb0, aav, prob.below, prop.closed, harvest.rate, #, avg.dep, depletion, low.dep,
-                            .width=c(0.50, 0.95)
+                            .width=c(0.50, 0.80)
                         )
 
 # Reformat perforance data into long format for ease of plotting
@@ -255,16 +266,16 @@ perf.data <-
     bind_rows(
         reformat.metric.df("ann_catch"),
         reformat.metric.df("aav"),
-        reformat.metric.df("harvest.rate"),
-        reformat.metric.df("dyn.b0"),
+        #reformat.metric.df("harvest.rate"),
+        #reformat.metric.df("dyn.b0"),
         reformat.metric.df("avg.db0"),
-        reformat.metric.df("low.dynb0"),
+        #reformat.metric.df("low.dynb0"),
         #reformat.metric.df("depletion"),
         #reformat.metric.df("avg.dep"),
         #reformat.metric.df("stab"),
         #reformat.metric.df("low.dep"),
-        reformat.metric.df("prob.below"),
-        reformat.metric.df("prop.closed")
+        #reformat.metric.df("prob.below"),
+        #reformat.metric.df("prop.closed")
         
     ) %>% 
     mutate(
@@ -272,13 +283,13 @@ perf.data <-
             recode_factor(
                 metric, 
                 !!!c(
-                    tot_catch = "Total Catch",
-                    ann_catch = "Annual Catch",
+                    tot_catch = "Total Catch (mt)",
+                    ann_catch = "Annual Catch (mt)",
                     aav = "Average Annual Catch Variation",
                     harvest.rate = "Realized Harvest Rate",
-                    biomass = "Final Year Biomass",
+                    biomass = "Final Year Biomass (mt)",
                     depletion = "Final Year Depletion Level",
-                    avg.bio = "Average Biomass",
+                    avg.bio = "Average Biomass (mt)",
                     avg.dep = "Average Depletion Level",
                     dyn.b0 = "Final Year Relative Biomass",
                     avg.db0 = "Average Relative Biomass",
@@ -290,7 +301,21 @@ perf.data <-
                 )
             )
     )
-#     print(n=75)
+
+perf.data <- perf.data %>%
+    left_join(
+        perf.data %>% filter(control.rule == "Default" & .width == 0.50) %>% select(control.rule, metric, median),
+        by = c("metric")
+    ) %>% 
+    mutate(
+        def.rel = median.x/median.y
+    ) %>%
+    select(-c(control.rule.y, median.y)) %>%
+    rename(control.rule=control.rule.x, median=median.x) %>%
+    mutate(
+        control.rule = factor(control.rule, levels=c("Low Threshold", "Default", "Evenness", "Gradient", "Three Step", "High Harvest", "Low Harvest", "High Threshold", "Big Fish", "No Fishing"))
+    ) %>%
+    print(n=100)
 
 # perf.data %>% filter(.width == 0.95) %>%
 #     group_by(control.rule) %>%
@@ -302,25 +327,43 @@ perf.data <-
 #     ) %>%
 #     write_csv(file=paste0(here::here("results/"), "performance_summary.csv"))
 
-ggplot(perf.data) +
+rel.percents <- perf.data %>% select(control.rule, metric, metric.long, def.rel) %>% unique() %>%
+    mutate(
+        x = c(rep(20000, 10), rep(2.0, 10), rep(2.0, 10))
+    )
+
+names(hcr.colors) <- c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold", "Evenness", "Gradient", "Three Step", "Big Fish", "No Fishing")    
+
+p <- ggplot(perf.data) +
         geom_pointinterval(aes(
             x = median,
             y = control.rule,
             xmin = lower,
             xmax = upper,
             color = control.rule
-        ), point_size=6) +
+        ), point_size=5) +
         geom_vline(
             data = perf.data %>% filter(control.rule == "Default" & .width == 0.5),
-            aes(xintercept=median)) +
-        scale_color_manual(values=as.vector(hcr.colors)) +
+            aes(xintercept=median),
+            linetype="dashed") +
+        geom_text(
+            data = rel.percents,
+            aes(
+                x = x,
+                y = control.rule,
+                label = paste0(100*round(def.rel, 2), "%")
+            ),
+            size=7,
+            hjust=1
+        )+
+        scale_color_manual(values=hcr.colors) +
         scale_y_discrete(limits=rev, labels=function(x) str_wrap(x, width=15)) +
-        facet_wrap_custom(~metric.long, ncol=3, scale="free_x", shrink=TRUE, scale_overrides = list(
+        facet_wrap_custom(~metric.long, ncol=4, scale="free_x", shrink=TRUE, scale_overrides = list(
             #scale_override(1, scale_x_continuous(breaks=seq(0, 1000000, 100000),   labels=seq(0, 1000, 100),  limits = c(0, 1000000))),
-            scale_override(1, scale_x_continuous(breaks=seq(0, 50000,  10000),      labels=seq(0, 50, 10),      limits = c(0, 50000))),
-            scale_override(4, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
-            scale_override(5, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
-            scale_override(6, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
+            scale_override(1, scale_x_continuous(breaks=seq(0, 20000,  5000),      labels=seq(0, 20, 5),      limits = c(0, 20000))),
+            #scale_override(4, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
+            #scale_override(5, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
+            #scale_override(6, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
             scale_override(2, scale_x_continuous(breaks=seq(0, 2.0, 0.5),        labels=seq(0, 2, 0.5),   limits = c(0, 2))),
             #scale_override(4, scale_x_continuous(breaks=seq(0, 500000, 100000),   labels=seq(0, 500, 100),  limits = c(0, 500000))),
             #scale_override(4, scale_x_continuous(breaks=seq(0, 15, 1),            labels=seq(0, 15, 1),     limits = c(0, 15))),
@@ -328,25 +371,29 @@ ggplot(perf.data) +
             #scale_override(5, scale_x_continuous(breaks=seq(0, 200000, 25000),    labels=seq(0, 200, 25),   limits = c(0, 200000))),
             #scale_override(6, scale_x_continuous(breaks=seq(0, 0.5, 0.1),         labels=seq(0, 0.5, 0.1),  limits = c(0, 0.5))),
             #scale_override(7, scale_x_continuous(breaks=seq(0, 2.0, 0.1),         labels=seq(0, 2.0, 0.1),  limits = c(0, 2.0))),
-            scale_override(7, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
-            scale_override(8, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
-            scale_override(3, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0)))
+            #scale_override(7, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
+            #scale_override(8, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
+            scale_override(3, scale_x_continuous(breaks=seq(0, 2.0, 0.5),         labels=seq(0, 2.0, 0.5),  limits = c(0, 2.0)))
         ))+
         labs(x="", y="", title="Performance Metric Summaries")+ 
         theme(
             panel.grid.minor.x = element_blank(),
             legend.position = "none",
             plot.title = element_blank(),
-            strip.text = element_text(size=15),
-            axis.text.x = element_text(size=14),
-            axis.text.y = element_text(size=14),
+            strip.text = element_text(size=22, face="bold"),
+            axis.text.x = element_text(size=20, face="bold"),
+            axis.text.y = element_text(size=20, face="bold"),
             panel.background = element_blank(),
             strip.background = element_blank(),
             panel.border = element_rect(fill=alpha("white", 0.0)),
             panel.spacing.x = unit(0, "cm")
         )
 
-ggsave("/Users/jzahner/Desktop/perf_plot.png", width=11, height=8.5)
+p
+
+tag_facet(p, tag_pool = toupper(letters), size=5, x=c(17000, 1.7, 0.75, 0.85))+theme(strip.text = element_text(size=15))
+
+ggsave(file.path(here::here(), "figures", "present", "performance_metrics_small.png"), dpi=300, width=14, height=6, units="in")
 
 ## -------------------------------------
 ## Bentley et al. 2003 Objectve Function
@@ -354,7 +401,7 @@ ggsave("/Users/jzahner/Desktop/perf_plot.png", width=11, height=8.5)
 
 ms <- list(
     #tot_catch = 150000,
-    ann_catch = 6000,
+    ann_catch = 3000,
     aav = 1.0,
     dyn.b0 = 0.50,
     avg.db0 = 0.50,
@@ -414,7 +461,7 @@ total.utility <- function(utilities){
     return(prod(as.numeric(utilities))^(1/n))
 }
 
-perf.matrix <- perf.data %>% select(control.rule, metric, median, lower, upper) %>% filter(metric %in% c("ann_catch", "dyn.b0", "aav", "prop.closed")) %>% as.matrix
+perf.matrix <- perf.data %>% select(control.rule, metric, median, lower, upper) %>% filter(metric %in% c("ann_catch", "avg.db0", "aav")) %>% as.matrix
 
 utility.matrix <- perf.matrix
 median.utilities <- apply(perf.matrix, 1, function(x) calc.utility(x[["median"]], x[["metric"]]))
@@ -440,3 +487,43 @@ utility.df <- as_tibble(utility.matrix) %>%
                 arrange(desc(rel.util)) %>%
                 print(n=10)
 
+###############
+# Cluster Dendogram
+###############
+library(ggdendro)
+
+perf.mat <- catch.biomass.df %>% filter(.width == "0.5") %>% select(ann_catch, dyn.b0, aav) %>% as.matrix
+rownames(perf.mat) <- c("base", "low.harvest", "high.harvest", "low.biomass", "high.biomass", "evenness", "gradient", "three.step.thresh", "big.fish", "constant.f.00")
+
+distance <- dist(perf.mat, method="euclidean")
+tree <- hclust(distance, method="average")
+tree$labels <- hcr.levels
+#plot(x = tree, labels = names(Y), cex = 0.5, las=1)
+
+dend <- as.dendrogram(tree)
+dend_data <- dendro_data(dend, type = "rectangle")
+
+m=1
+
+ggplot(dend_data$segments) + 
+    geom_segment(aes(x = m*x, y = y, xend = xend*m, yend = yend))+
+    geom_text(
+        data = dend_data$labels, 
+        aes(m*x, y, label = label, color=label), 
+        hjust = -0.1, vjust=0.5, angle = 0, size = 6
+    )+
+    scale_color_manual(values=hcr.colors.named)+
+    scale_x_reverse()+
+    scale_y_reverse()+
+    labs(y="Euclidian Distance", x="Control Rule")+
+    coord_cartesian(clip="off")+
+    coord_flip(ylim=c(6000, -15000))+
+    theme(
+        panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none"
+    )
+
+ggsave(file.path(here::here(), "figures", "cr_heirarchy.png"), dpi=300, width=4, height=8, units="in")

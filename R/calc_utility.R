@@ -2,7 +2,7 @@ library(tidyverse)
 
 utility.ms <- list(
     tot_catch = 150000,
-    ann_catch = 6000,
+    ann_catch = 3000,
     aav = 1.0,
     biomass = 20000,
     avg.bio = 20000,
@@ -12,7 +12,8 @@ utility.ms <- list(
     stab = 0.5,
     prob.below = 0.2,
     harvest.rate = 0.0,
-    dyn.b0 = 0.4
+    dyn.b0 = 0.4,
+    avg.db0 = 0.4
 )
 
 utility.ls <- list(
@@ -27,7 +28,8 @@ utility.ls <- list(
     stab       = 0.3,     # approximate median 
     prob.below = 0.0,     # we want the probability to be tiny
     harvest.rate = 0.3,
-    dyn.b0 = 0.9  
+    dyn.b0 = 0.9,
+    avg.db0 = 0.9
 )
 
 calc.utility <- function(value, metric){

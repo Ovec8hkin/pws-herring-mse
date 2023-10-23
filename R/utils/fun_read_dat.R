@@ -130,6 +130,23 @@ read.exploit.rates <- function(model.dir, nyr=NA){
 
 }
 
+read.true.exploit.rates <- function(cr, sims, nyr){
+    catch <- read.catch.data(cr, sims, nyr) %>% na.omit() %>%
+        group_by(year, control.rule, sim) %>%
+        summarise(catch=sum(catch)) %>%
+        mutate(year=2022+year)
+    biomass <- read.true.biomass.data(cr, sims, nyr)
+
+    exploit.rates <- catch %>% 
+        left_join(biomass, by=c("year", "control.rule", "sim")) %>%
+        mutate(
+          exploit = catch/biomass
+        ) %>%
+        print(n=10)
+
+    return(exploit.rates %>% na.omit())
+}
+
 compute.catch.biomass <- function(data, nyr){
 
     weight.at.age <- data$waa[1:nyr,]
