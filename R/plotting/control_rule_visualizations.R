@@ -45,6 +45,12 @@ as.plot$p+
           legend.key.height=unit(1.5, "cm")
      )
 
+
+
+
+
+
+
 ############# Simple Control Rule #############
 fs.default      <- apply(matrix(biomasses), 1, hcr.threshold.linear)
 fs.three.step   <- apply(matrix(biomasses), 1, hcr.threshold.multi, options=list(lower.threshold=19958, middle.threshold=38855, upper.threshold=60000, min.harvest=0.0, mid.harvest=0.2, max.harvest=0.6))
@@ -171,11 +177,11 @@ fs.df$control.rule <- factor(fs.df$control.rule,
                               labels=c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold", "Three Step", "Big Fish", "No Fishing"))
 
 
-fs.names <- data.frame(control.rule=unique(fs.df$control.rule), cr.name=c("Default", "Low Threshold", "High Threshold", "High Harvest", "Low Harvest", "Three Step\nThreshold", "Big Fish Only\n(>110g)", "No Fishing"))
+fs.names <- data.frame(control.rule=unique(fs.df$control.rule), cr.name=c("Default", "Low\nThreshold", "High\nThreshold", "High\nHarvest", "Low\nHarvest", "Three Step\nThreshold", "Big Fish Only\n(>110g)", "No Fishing"))
 
 simple.cr.plot <- ggplot(fs.df, aes(x=biomass, y=harvest.rate, color=control.rule, fontface="bold"), x=3000, y=0.65)+
      geom_line(size=1.5)+
-     geom_text(data=fs.names, aes(x=3000, y=0.65, label=cr.name), hjust=0, vjust=0.75, size=6)+
+     geom_text(data=fs.names, aes(x=3000, y=0.65, label=cr.name), hjust=0, vjust=0.75, size=3.5)+
      #geom_vline(aes(xintercept=20000))+
      scale_color_manual(values=hcr.colors.named)+
      scale_y_continuous(limits=c(-0.005, 0.70), expand=c(0, 0), breaks=c(0.0, 0.2, 0.4, 0.6), labels=c(0.0, 0.2, 0.4, 0.6))+
@@ -190,11 +196,11 @@ simple.cr.plot <- ggplot(fs.df, aes(x=biomass, y=harvest.rate, color=control.rul
           panel.grid.minor=element_blank(),
           panel.spacing.x=unit(0.5, "cm"),
           panel.spacing.y=unit(1, "cm"),
-          plot.margin = unit(c(0, 30, 30, 0), "pt"),
-          axis.title.x = element_text(face="bold", size=14),
-          axis.text.x = element_text(size=12),
-          axis.text.y = element_text(size=12),
-          axis.title.y = element_text(face="bold", size=14),
+          #plot.margin = unit(c(0, 30, 30, 0), "pt"),
+          axis.title.x = element_text(size=12),
+          axis.text.x = element_text(size=10),
+          axis.text.y = element_text(size=10),
+          axis.title.y = element_text(size=12),
           plot.title = element_blank()
      )
 
@@ -202,7 +208,7 @@ ggsave("/Users/jzahner/Desktop/hcrs.png", height=8, units="in")
 
 grad.plot.sing <- gradient.plot$p+
      scale_fill_gradient(low="white", high="red", na.value = "transparent", name="Harvest Rate")+
-     geom_label_contour(breaks=c(0.1, 0.20, 0.30, 0.40), skip=0, label.placer=label_placer_fraction(0.5), size=8, label.padding = unit(5, "pt"))+
+     geom_label_contour(breaks=c(0.1, 0.20, 0.30, 0.40), skip=0, label.placer=label_placer_fraction(0.5), size=5, label.padding = unit(5, "pt"))+
      scale_x_continuous(name="Pre-Fishery Biomass (1000 mt)", expand=c(0, 0), breaks=seq(0, 80000, 10000), labels=seq(0, 80, 10))+
      coord_cartesian(xlim=c(0, 80000))+
      labs(title="Gradient Rule")+
@@ -211,17 +217,17 @@ grad.plot.sing <- gradient.plot$p+
           legend.direction="vertical",
           legend.key.width=unit(1.0, "cm"),
           legend.key.height=unit(1.0, "cm"),
-          legend.text = element_text(size=12),
-          legend.title = element_text(size=14),
-          axis.text = element_text(size=12),
-          axis.title = element_text(size=14, face="bold"),
+          legend.text = element_text(size=10),
+          legend.title = element_text(size=12),
+          axis.text = element_text(size=10),
+          axis.title = element_text(size=12),
           plot.title = element_blank(),
           axis.title.x = element_text(margin=margin(15, 0, 0, 0)),
           axis.title.y = element_text(margin=margin(0, 15, 0, 0))
      )
 
 as.plot.sing <- as.plot$p+
-     geom_label_contour(breaks=c(0.1, 0.20), skip=0, label.placer=label_placer_fraction(0.5), size=8, label.padding = unit(5, "pt"))+
+     geom_label_contour(breaks=c(0.1, 0.20), skip=0, label.placer=label_placer_fraction(0.5), size=5, label.padding = unit(5, "pt"))+
      scale_x_continuous(name="Pre-Fishery Biomass (1000 mt)", expand=c(0, 0), breaks=seq(0, 80000, 10000), labels=seq(0, 80, 10))+
      scale_fill_gradient(low="white", high="red", limits=c(0.0, 0.5), name="Harvest Rate")+
      coord_cartesian(xlim=c(0, 80000))+
@@ -231,10 +237,10 @@ as.plot.sing <- as.plot$p+
           legend.direction="vertical",
           legend.key.width=unit(1.0, "cm"),
           legend.key.height=unit(1.0, "cm"),
-          legend.text = element_text(size=12),
-          legend.title = element_text(size=14),
-          axis.text = element_text(size=12),
-          axis.title = element_text(size=14, face="bold"),
+          legend.text = element_text(size=10),
+          legend.title = element_text(size=12),
+          axis.text = element_text(size=10),
+          axis.title = element_text(size=12),
           plot.title = element_blank(),
           axis.title.x = element_text(margin=margin(15, 0, 0, 0)),
           axis.title.y = element_text(margin=margin(0, 15, 0, 0))
@@ -243,7 +249,7 @@ as.plot.sing <- as.plot$p+
 library(patchwork)
 
 (
-     tag_facet(simple.cr.plot, x=70000, y=0.70) / 
+     tag_facet(simple.cr.plot, x=60000, y=0.70, size=3.5) / 
      (as.plot.sing + grad.plot.sing + 
           plot_layout(guides="collect") & 
           theme(
@@ -256,6 +262,8 @@ plot_annotation(
      #title="Harvest Control Rules",
      tag_levels="A"
 )
+#ggsave(file.path(here::here(), "figures", "publication", "Fig4_hcrs.jpg"), dpi=300, width=170, height=200, units="mm")
+ggsave(file.path(here::here(), "figures", "publication", "Fig4_hcrs.pdf"), dpi=300, width=170, height=200, units="mm")
 
 ggsave("/Users/jzahner/Desktop/hcrs.eps", device="eps", dpi=320)
 

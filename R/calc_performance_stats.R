@@ -5,6 +5,7 @@ library(ggdist)
 source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
 source(file=paste0(here::here("R/plotting/"), "plot_util_vals.r"))
 source(file=paste0(here::here("R/plotting/"), "ggplot_facet_scaling.R"))
+source(file=paste0(here::here("R/utils/other/"), "get_good_sims.R"))
 
 ## Calculates Average Annual Variation in a metric
 ## -----------------------------------------------
@@ -251,6 +252,9 @@ catch.biomass.df <- biomass.df %>%
                     mutate(control.rule=recode_factor(control.rule, !!!hcr.levels)) %>%
                     filter(no.fish.biomass != 0)
 
+
+cor.matrix <- catch.biomass.df %>% select(ann_catch, aav, harvest.rate, dyn.b0, avg.db0, low.dynb0, prob.below, prop.closed) %>% cor %>% round(., digits=2)
+
 # Compute median, 50% (25-75), and 95% (2.5-97.5) confidence intervals
 # for all performane metrics.
 catch.biomass.df <- as_tibble(catch.biomass.df) %>%
@@ -266,16 +270,16 @@ perf.data <-
     bind_rows(
         reformat.metric.df("ann_catch"),
         reformat.metric.df("aav"),
-        #reformat.metric.df("harvest.rate"),
-        #reformat.metric.df("dyn.b0"),
+        reformat.metric.df("harvest.rate"),
+        reformat.metric.df("dyn.b0"),
         reformat.metric.df("avg.db0"),
-        #reformat.metric.df("low.dynb0"),
+        reformat.metric.df("low.dynb0"),
         #reformat.metric.df("depletion"),
         #reformat.metric.df("avg.dep"),
         #reformat.metric.df("stab"),
         #reformat.metric.df("low.dep"),
-        #reformat.metric.df("prob.below"),
-        #reformat.metric.df("prop.closed")
+        reformat.metric.df("prob.below"),
+        reformat.metric.df("prop.closed")
         
     ) %>% 
     mutate(
@@ -285,19 +289,19 @@ perf.data <-
                 !!!c(
                     tot_catch = "Total Catch (mt)",
                     ann_catch = "Annual Catch (mt)",
-                    aav = "Average Annual Catch Variation",
-                    harvest.rate = "Realized Harvest Rate",
-                    biomass = "Final Year Biomass (mt)",
-                    depletion = "Final Year Depletion Level",
+                    aav = "Average Annual\nCatch Variation",
+                    harvest.rate = "Realized Harvest\nRate",
+                    biomass = "Final Year\nBiomass (mt)",
+                    depletion = "Final Year\nDepletion",
                     avg.bio = "Average Biomass (mt)",
-                    avg.dep = "Average Depletion Level",
-                    dyn.b0 = "Final Year Relative Biomass",
-                    avg.db0 = "Average Relative Biomass",
-                    low.dynb0 = "Lowest Relative Biomass",
+                    avg.dep = "Average Depletion",
+                    dyn.b0 = "Final Year\nRelative Biomass",
+                    avg.db0 = "Average Relative\nBiomass",
+                    low.dynb0 = "Lowest Relative\nBiomass",
                     stab = "Annual Biomass Variability",
                     low.dep = "Lowest Depletion Level",
-                    prob.below = "Years Below Threshold",
-                    prop.closed = "Years Fishery is Closed"
+                    prob.below = "Years Below\nThreshold",
+                    prop.closed = "Years Fishery\nis Closed"
                 )
             )
     )
@@ -341,29 +345,29 @@ p <- ggplot(perf.data) +
             xmin = lower,
             xmax = upper,
             color = control.rule
-        ), point_size=5) +
+        ), point_size=3.5) +
         geom_vline(
             data = perf.data %>% filter(control.rule == "Default" & .width == 0.5),
             aes(xintercept=median),
             linetype="dashed") +
-        geom_text(
-            data = rel.percents,
-            aes(
-                x = x,
-                y = control.rule,
-                label = paste0(100*round(def.rel, 2), "%")
-            ),
-            size=7,
-            hjust=1
-        )+
+        # geom_text(
+        #     data = rel.percents,
+        #     aes(
+        #         x = x,
+        #         y = control.rule,
+        #         label = paste0(100*round(def.rel, 2), "%")
+        #     ),
+        #     size=7,
+        #     hjust=1
+        # )+
         scale_color_manual(values=hcr.colors) +
         scale_y_discrete(limits=rev, labels=function(x) str_wrap(x, width=15)) +
-        facet_wrap_custom(~metric.long, ncol=4, scale="free_x", shrink=TRUE, scale_overrides = list(
+        facet_wrap_custom(~metric.long, ncol=3, scale="free_x", shrink=TRUE, scale_overrides = list(
             #scale_override(1, scale_x_continuous(breaks=seq(0, 1000000, 100000),   labels=seq(0, 1000, 100),  limits = c(0, 1000000))),
             scale_override(1, scale_x_continuous(breaks=seq(0, 20000,  5000),      labels=seq(0, 20, 5),      limits = c(0, 20000))),
-            #scale_override(4, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
-            #scale_override(5, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
-            #scale_override(6, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
+            scale_override(4, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
+            scale_override(5, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
+            scale_override(6, scale_x_continuous(breaks=seq(0, 1, 0.2),           labels=seq(0, 1, 0.2),     limits = c(0, 1))),
             scale_override(2, scale_x_continuous(breaks=seq(0, 2.0, 0.5),        labels=seq(0, 2, 0.5),   limits = c(0, 2))),
             #scale_override(4, scale_x_continuous(breaks=seq(0, 500000, 100000),   labels=seq(0, 500, 100),  limits = c(0, 500000))),
             #scale_override(4, scale_x_continuous(breaks=seq(0, 15, 1),            labels=seq(0, 15, 1),     limits = c(0, 15))),
@@ -371,18 +375,18 @@ p <- ggplot(perf.data) +
             #scale_override(5, scale_x_continuous(breaks=seq(0, 200000, 25000),    labels=seq(0, 200, 25),   limits = c(0, 200000))),
             #scale_override(6, scale_x_continuous(breaks=seq(0, 0.5, 0.1),         labels=seq(0, 0.5, 0.1),  limits = c(0, 0.5))),
             #scale_override(7, scale_x_continuous(breaks=seq(0, 2.0, 0.1),         labels=seq(0, 2.0, 0.1),  limits = c(0, 2.0))),
-            #scale_override(7, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
-            #scale_override(8, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
-            scale_override(3, scale_x_continuous(breaks=seq(0, 2.0, 0.5),         labels=seq(0, 2.0, 0.5),  limits = c(0, 2.0)))
+            scale_override(7, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
+            scale_override(8, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0))),
+            scale_override(3, scale_x_continuous(breaks=seq(0, 1.0, 0.2),         labels=seq(0, 1.0, 0.2),  limits = c(0, 1.0)))
         ))+
         labs(x="", y="", title="Performance Metric Summaries")+ 
         theme(
             panel.grid.minor.x = element_blank(),
             legend.position = "none",
             plot.title = element_blank(),
-            strip.text = element_text(size=22, face="bold"),
-            axis.text.x = element_text(size=20, face="bold"),
-            axis.text.y = element_text(size=20, face="bold"),
+            strip.text = element_text(size=10),
+            axis.text.x = element_text(size=10),
+            axis.text.y = element_text(size=10),
             panel.background = element_blank(),
             strip.background = element_blank(),
             panel.border = element_rect(fill=alpha("white", 0.0)),
@@ -391,9 +395,12 @@ p <- ggplot(perf.data) +
 
 p
 
-tag_facet(p, tag_pool = toupper(letters), size=5, x=c(17000, 1.7, 0.75, 0.85))+theme(strip.text = element_text(size=15))
+tag_facet(p, tag_pool = toupper(letters), size=4, x=c(15000, 1.5, 0.75, 0.0, 0.0, 0.75, 0.75, 0.75))+theme(strip.text = element_text(size=12))
+ggsave(file.path(here::here(), "figures", "publication", "Fig7_perf_metrics.jpg"), dpi=300, width=170, height=170, units="mm")
 
-ggsave(file.path(here::here(), "figures", "present", "performance_metrics_small.png"), dpi=300, width=14, height=6, units="in")
+ggsave(file.path(here::here(), "figures", "publication", "Fig7_perf_metrics.pdf"), dpi=300, width=170, height=170, units="mm")
+
+#ggsave(file.path(here::here(), "figures", "present", "performance_metrics_small.png"), dpi=300, width=14, height=6, units="in")
 
 ## -------------------------------------
 ## Bentley et al. 2003 Objectve Function
@@ -403,36 +410,36 @@ ms <- list(
     #tot_catch = 150000,
     ann_catch = 3000,
     aav = 1.0,
-    dyn.b0 = 0.50,
+    #dyn.b0 = 0.50,
     avg.db0 = 0.50,
-    low.db0 = 0.35,
+    #low.db0 = 0.35,
     #biomass = 20000,
     #avg.bio = 20000,
     #avg.dep = 0.35,
     #depletion = 0.35,
     #low.dep = 0.2,
     #stab = 0.5,
-    prob.below = 0.2,
-    prop.closed = 0.33,
-    harvest.rate = 0.0
+    prob.below = 0.5
+    #prop.closed = 0.33,
+    #harvest.rate = 0.0
 )
 
 ls <- list(
     #tot_catch  = 500000,  # max annual catch 1970-1990 * nyr
     ann_catch  = 20000,   # approximate max annual catch 1970-1990
     aav        = 0.0,     # a constant catch/F rule has AAV 0
-    dyn.b0     = 1.0,
+    #dyn.b0     = 1.0,
     avg.db0    = 1.0,
-    low.db0    = 1.5,     
+    #low.db0    = 1.5,     
     #biomass    = 80000,   # 50% biomass peak in 1990
     #avg.bio    = 80000,   # 50% of biomass peak
     #avg.dep    = 2.0,
     #depletion  = 2.0,     # matches avg_bio
     #low.dep    = 2.0,
     #stab       = 0.3,     # approximate median 
-    prob.below = 0.0,      # we want the probability to be tiny,
-    prop.closed = 0.0,
-    harvest.rate = 0.3  
+    prob.below = 0.0      # we want the probability to be tiny,
+    #prop.closed = 0.0,
+    #harvest.rate = 0.3  
 )
 
 calc.utility <- function(value, metric){
@@ -461,7 +468,7 @@ total.utility <- function(utilities){
     return(prod(as.numeric(utilities))^(1/n))
 }
 
-perf.matrix <- perf.data %>% select(control.rule, metric, median, lower, upper) %>% filter(metric %in% c("ann_catch", "avg.db0", "aav")) %>% as.matrix
+perf.matrix <- perf.data %>% select(control.rule, metric, median, lower, upper) %>% filter(metric %in% c("ann_catch", "aav", "prob.below")) %>% as.matrix
 
 utility.matrix <- perf.matrix
 median.utilities <- apply(perf.matrix, 1, function(x) calc.utility(x[["median"]], x[["metric"]]))

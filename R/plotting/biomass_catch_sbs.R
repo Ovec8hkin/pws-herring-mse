@@ -71,7 +71,7 @@ ann.catch.traj <- catch.data %>% na.omit() %>%
 
 sample.sims <- sample(sims, size=5)
 
-sample.trajectories <- biomass.traj.raw %>% 
+sample.trajectories <- bio.traj.df %>% 
     filter(sim %in% sample.sims) %>% 
     left_join(
         ann.catch.traj %>% filter(sim %in% sample.sims), 
@@ -80,7 +80,7 @@ sample.trajectories <- biomass.traj.raw %>%
     replace_na(list(year=0, biomass=0, control.rule=0, sim=0, total.catch=0)) %>%
     mutate(control.rule=recode_factor(control.rule, !!!hcr.levels))
 
-traj <- biomass.traj.raw %>% na.omit() %>%
+traj <- bio.traj.df %>% na.omit() %>%
                     left_join(ann.catch.traj, by=c("year", "control.rule", "sim")) %>%
                     replace_na(list(year=0, biomass=0, control.rule=0, sim=0, total.catch=0)) %>%
                     mutate(control.rule=recode_factor(control.rule, !!!hcr.levels)) %>%
@@ -88,14 +88,14 @@ traj <- biomass.traj.raw %>% na.omit() %>%
                     median_qi(biomass, total.catch, .width = c(.80))
 
 bio.plot.1 <- ggplot(traj %>% filter(control.rule %in% c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold"))) +
-    geom_lineribbon(aes(x=year, y=biomass, ymin=biomass.lower, ymax=biomass.upper, color=control.rule))+
-    geom_line(data=sample.trajectories %>% filter(control.rule %in% c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold")), aes(x=year, y=biomass, group=sim), alpha=0.3)+
-    geom_hline(yintercept=20000, linetype="dashed")+
-    geom_hline(yintercept=40000, linetype="dashed")+
+    geom_lineribbon(aes(x=year, y=biomass/1000, ymin=biomass.lower/1000, ymax=biomass.upper/1000, color=control.rule))+
+    geom_line(data=sample.trajectories %>% filter(control.rule %in% c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold")), aes(x=year, y=biomass/1000, group=sim), alpha=0.3)+
+    geom_hline(yintercept=20000/1000, linetype="dashed")+
+    geom_hline(yintercept=40000/1000, linetype="dashed")+
     scale_color_manual(values=hcr.colors.named)+
     scale_fill_grey(start=0.9, end=0.7)+
-    coord_cartesian(ylim=c(0, 125000), expand=0.1)+
-    labs(x="Year", y="Biomass (mt)")+
+    coord_cartesian(ylim=c(0, 125000)/1000, expand=0.1)+
+    labs(x="Year", y="Biomass\n(1000 mt)")+
     facet_wrap(~control.rule, nrow=1) +
     theme(
         panel.background = element_blank(),
@@ -105,21 +105,21 @@ bio.plot.1 <- ggplot(traj %>% filter(control.rule %in% c("Default", "Low Harvest
         panel.border = element_rect(fill=alpha("white", 0)),
         panel.spacing = unit(0, "cm"),
         strip.background = element_blank(),
-        strip.text = element_text(size=15),
-        axis.text = element_text(size=12),
-        axis.title = element_text(size=12)
+        strip.text = element_text(size=12),
+        axis.text = element_text(size=10),
+        axis.title = element_text(size=10)
     )
 
-bio.plot.1 <- tag_facet(bio.plot.1, tag_pool=toupper(letters), size=5)
+bio.plot.1 <- tag_facet(bio.plot.1, tag_pool=toupper(letters), size=3.5)
 
 catch.plot.1 <- ggplot(traj %>% filter(control.rule %in% c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold"))) +
-    geom_lineribbon(aes(x=year, y=total.catch, ymin=total.catch.lower, ymax=total.catch.upper, color=control.rule))+
-    geom_line(data=sample.trajectories %>% filter(control.rule %in% c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold")), aes(x=year, y=total.catch, group=sim), alpha=0.3)+
+    geom_lineribbon(aes(x=year, y=total.catch/1000, ymin=total.catch.lower/1000, ymax=total.catch.upper/1000, color=control.rule))+
+    geom_line(data=sample.trajectories %>% filter(control.rule %in% c("Default", "Low Harvest", "High Harvest", "Low Threshold", "High Threshold")), aes(x=year, y=total.catch/1000, group=sim), alpha=0.3)+
     scale_color_manual(values=hcr.colors.named)+
     scale_fill_grey(start=0.9, end=0.7)+
-    scale_y_continuous(breaks=seq(0, 45000, 15000))+
-    coord_cartesian(ylim=c(0, 50000), expand=0)+
-    labs(x="Year", y="Total Catch (mt)")+
+    scale_y_continuous(breaks=seq(0, 45000, 15000)/1000)+
+    coord_cartesian(ylim=c(0, 50000)/1000, expand=0)+
+    labs(x="Year", y="Catch\n(1000 mt)")+
     facet_wrap(~control.rule, nrow=1) +
     theme(
         panel.background = element_blank(),
@@ -128,21 +128,21 @@ catch.plot.1 <- ggplot(traj %>% filter(control.rule %in% c("Default", "Low Harve
         panel.border = element_rect(fill=alpha("white", 0)),
         panel.spacing = unit(0, "cm"),
         plot.margin = unit(c(0, 0, 0, 0), "cm"),
-        axis.text = element_text(size=12),
-        axis.title = element_text(size=12)
+        axis.text = element_text(size=10),
+        axis.title = element_text(size=10)
     )
 
 #catch.plot.1 <- tag_facet(catch.plot.1, tag_pool=letters[6:26])
 
 bio.plot.2 <- ggplot(traj %>% filter(control.rule %in% c("Evenness", "Gradient", "Three Step", "Big Fish", "No Fishing"))) +
-    geom_lineribbon(aes(x=year, y=biomass, ymin=biomass.lower, ymax=biomass.upper, color=control.rule))+
-    geom_line(data=sample.trajectories %>% filter(control.rule %in% c("Evenness", "Gradient", "Three Step", "Big Fish", "No Fishing")), aes(x=year, y=biomass, group=sim), alpha=0.3)+
-    geom_hline(yintercept=20000, linetype="dashed")+
-    geom_hline(yintercept=40000, linetype="dashed")+
+    geom_lineribbon(aes(x=year, y=biomass/1000, ymin=biomass.lower/1000, ymax=biomass.upper/1000, color=control.rule))+
+    geom_line(data=sample.trajectories %>% filter(control.rule %in% c("Evenness", "Gradient", "Three Step", "Big Fish", "No Fishing")), aes(x=year, y=biomass/1000, group=sim), alpha=0.3)+
+    geom_hline(yintercept=20000/1000, linetype="dashed")+
+    geom_hline(yintercept=40000/1000, linetype="dashed")+
     scale_color_manual(values=hcr.colors.named)+
     scale_fill_grey(start=0.9, end=0.7)+
-    coord_cartesian(ylim=c(0, 125000), expand=0.1)+
-    labs(x="Year", y="Biomass (mt)")+
+    coord_cartesian(ylim=c(0, 125000)/1000, expand=0.1)+
+    labs(x="Year", y="Biomass\n(1000 mt)")+
     facet_wrap(~control.rule, nrow=1) +
     theme(
         panel.background = element_blank(),
@@ -152,21 +152,21 @@ bio.plot.2 <- ggplot(traj %>% filter(control.rule %in% c("Evenness", "Gradient",
         panel.border = element_rect(fill=alpha("white", 0)),
         panel.spacing = unit(0, "cm"),
         strip.background = element_blank(),
-        strip.text = element_text(size=15),
-        axis.text = element_text(size=12),
-        axis.title = element_text(size=12)
+        strip.text = element_text(size=12),
+        axis.text = element_text(size=10),
+        axis.title = element_text(size=10)
     )
 
-bio.plot.2 <- tag_facet(bio.plot.2, tag_pool=toupper(letters[6:26]), size=5)
+bio.plot.2 <- tag_facet(bio.plot.2, tag_pool=toupper(letters[6:26]), size=3.5)
 
 catch.plot.2 <- ggplot(traj %>% filter(control.rule %in% c("Evenness", "Gradient", "Three Step", "Big Fish", "No Fishing"))) +
-    geom_lineribbon(aes(x=year, y=total.catch, ymin=total.catch.lower, ymax=total.catch.upper, color=control.rule))+
-    geom_line(data=sample.trajectories %>% filter(control.rule %in% c("Evenness", "Gradient", "Three Step", "Big Fish", "No Fishing")), aes(x=year, y=total.catch, group=sim), alpha=0.3)+
+    geom_lineribbon(aes(x=year, y=total.catch/1000, ymin=total.catch.lower/1000, ymax=total.catch.upper/1000, color=control.rule))+
+    geom_line(data=sample.trajectories %>% filter(control.rule %in% c("Evenness", "Gradient", "Three Step", "Big Fish", "No Fishing")), aes(x=year, y=total.catch/1000, group=sim), alpha=0.3)+
     scale_color_manual(values=hcr.colors.named)+
     scale_fill_grey(start=0.9, end=0.7)+
-    scale_y_continuous(breaks=seq(0, 45000, 15000))+
-    coord_cartesian(ylim=c(0, 50000), expand=0)+
-    labs(x="Year", y="Total Catch (mt)")+
+    scale_y_continuous(breaks=seq(0, 45000, 15000)/1000)+
+    coord_cartesian(ylim=c(0, 50000)/1000, expand=0)+
+    labs(x="Year", y="Catch\n(1000 mt)")+
     facet_wrap(~control.rule, nrow=1) +
     theme(
         panel.background = element_blank(),
@@ -175,8 +175,8 @@ catch.plot.2 <- ggplot(traj %>% filter(control.rule %in% c("Evenness", "Gradient
         panel.border = element_rect(fill=alpha("white", 0)),
         panel.spacing = unit(0, "cm"),
         plot.margin = unit(c(0, 0, 0, 0), "cm"),
-        axis.text = element_text(size=12),
-        axis.title = element_text(size=12)
+        axis.text = element_text(size=10),
+        axis.title = element_text(size=10)
     )
 
 #catch.plot.2 <- tag_facet(catch.plot.2, tag_pool=letters[16:26])
@@ -196,4 +196,8 @@ patch2 <- (bio.plot.2 / plot_spacer() / catch.plot.2) + plot_layout(guide="colle
 
 plot_grid(patch1+theme(legend.position="none"), patch2+theme(legend.position="none"), nrow=2)
 
-ggsave(file.path(here::here(), "figures", "bio_catch.png"), dpi=300, width=11, height=8.5, units="in")
+#ggsave(file.path(here::here(), "figures", "bio_catch.png"), dpi=300, width=11, height=8.5, units="in")
+
+#ggsave(file.path(here::here(), "figures", "publication", "Fig6_biomass_catch.jpg"), dpi=300, width=170, height=132, units="mm")
+
+ggsave(file.path(here::here(), "figures", "publication", "Fig6_biomass_catch.pdf"), dpi=300, width=170, height=132, units="mm")

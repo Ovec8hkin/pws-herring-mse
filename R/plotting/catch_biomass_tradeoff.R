@@ -12,6 +12,7 @@ source(file=paste0(here::here(), "/R/calc_utility.R"))
 source(file=paste0(here::here("R/plotting/", "compute_plot_products.R")))
 source(file=paste0(here::here("R/plotting/", "plot_util_vals.r")))
 source(file=paste0(here::here("R/utils/"), "fun_read_dat.R"))
+source(file=paste0(here::here("R/utils/other/"), "get_good_sims.R"))
 
 reformat.metric.df <- function(metric.name){
     return(
@@ -249,7 +250,7 @@ generate.tradeoff.plot <- function(vars){
 
     plot <- ggplot(d)+
             geom_smooth(aes(x=x, y=y, ymin=ymin, ymax=ymax), data=model$preds, stat="identity", color="black")+
-            geom_point(aes(x=median.x, y=median.y, color=control.rule), size=4)+
+            geom_point(aes(x=median.x, y=median.y, color=control.rule), size=3)+
             geom_pointinterval(aes(x=median.x, xmin=lower.x, xmax=upper.x,
                                 y=median.y,
                                 color=control.rule), alpha=0.33)+
@@ -269,11 +270,12 @@ generate.tradeoff.plot <- function(vars){
             theme(
                 axis.line.x = element_line(),
                 axis.line.y = element_line(),
-                axis.text = element_text(size=15),
-                axis.title = element_text(size=22, face="bold"),
+                axis.text = element_text(size=10),
+                axis.title = element_text(size=12),
                 plot.title = element_blank(),
                 panel.grid.minor = element_blank()
-            )
+            )+
+            guides(color=guide_legend(nrow=3))
 
     #show(plot)
 
@@ -315,8 +317,8 @@ generate.utility.plot <- function(vars){
     plot <- ggplot(cb.util.df)+
                 geom_raster(aes(x=x, y=y, fill=total.util, z=total.util))+
                 geom_contour(aes(x=x, y=y, fill=total.util, z=total.util), breaks=c(0.25, 0.50, 0.75, 1.0), color="black", size=1)+
-                geom_label_contour(aes(x=x, y=y, fill=total.util, z=total.util), breaks=c(0.25, 0.50, 0.75, 1.0), skip=0, label.placer=label_placer_fraction(0.5))+
-                geom_point(data=d, aes(x=median.x, y=median.y, color=control.rule), size=4)+
+                geom_label_contour(aes(x=x, y=y, fill=total.util, z=total.util), size=4, breaks=c(0.25, 0.50, 0.75, 1.0), skip=0, label.placer=label_placer_fraction(0.5))+
+                geom_point(data=d, aes(x=median.x, y=median.y, color=control.rule), size=3)+
                 scale_color_manual(values=hcr.colors.named, name="Control Rule") +
                 scale_fill_gradient("Utility", low="white", high="red", limits=c(0, 1))+
                 coord_cartesian(expand=0)+
@@ -366,8 +368,8 @@ generate.fake.plot <- function(bounds, name, strip.x=TRUE, strip.y=TRUE, rev="no
         labs(x=name, y=name)+
         theme(
             panel.background = element_blank(),
-            axis.text = element_text(size=15),
-            axis.title = element_text(size=22, face="bold")
+            axis.text = element_text(size=10),
+            axis.title = element_text(size=12)
         )
 
     if(strip.x){
@@ -411,12 +413,15 @@ fake.3 <- generate.fake.plot(c(1, 0), name="Catch Variation", strip.x=FALSE, rev
 (fake.1                                 + strip.gg.axes(cvd.util.plot)              + strip.gg.axes(cvv.util.plot)) /
 (strip.gg.axes(dvc.trade.plot, y=FALSE) + fake.2                                    + strip.gg.axes(dvv.util.plot)) /
 (cvv.trade.plot                         + strip.gg.axes(dvv.trade.plot, x=FALSE)    + fake.3) +
-plot_layout(guides="collect")#+plot_annotation(tag_levels = "A")
+plot_layout(guides="collect") & theme(legend.position="bottom", legend.direction = "horizontal", legend.box="vertical")#+plot_annotation(tag_levels = "A")
+
+#ggsave(file.path(here::here(), "figures", "publication", "Fig8_tradeoff.jpg"), dpi=300, width=170, height=210, units="mm")
+ggsave(file.path(here::here(), "figures", "publication", "Fig8_tradeoff.pdf"), dpi=300, width=170, height=210, units="mm")
 
 ggsave(file.path(here::here(), "figures", "tradeoff.png"), dpi=300, width=14, height=12, units="in")
 ggsave(file.path(here::here(), "figures", "present", "tradeoff.png"), dpi=300, width=14, height=12, units="in")
 
-(dvc.trade.plot| dvv.trade.plot| cvv.trade.plot) + plot_layout(guides="collect") & theme(legend.position="top-right")
+(dvc.trade.plot| dvv.trade.plot| cvv.trade.plot) + plot_layout(guides="collect")
 
 ###################
 

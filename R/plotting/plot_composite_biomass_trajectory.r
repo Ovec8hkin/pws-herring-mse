@@ -7,6 +7,7 @@ library(tidyverse)
 
 source(paste0(here::here("R/utils"), "/fun_read_dat.R"))
 source(paste0(here::here("R/plotting"), "/plot_util_vals.R"))
+source(paste0(here::here("R/utils/other", "get_good_sims.R")))
 
 nyr <- 30
 years <- seq(1980, 1980+42+nyr-1)
@@ -64,7 +65,7 @@ p1 <- ggplot(biomass.traj, aes(x=year, y=biomass, color=control.rule, group=cont
         geom_hline(yintercept = 40000, linetype="longdash", color="gray50")+
         scale_fill_grey(start=0.8, end=0.6)+
         scale_x_continuous("Year", breaks=seq(1980, 2022+nyr, by=10), expand=c(0,0))+
-        scale_y_continuous("Pre-Fishery Biomass (1,000 mt)", breaks=c(0, 20000, 40000, 50000, 100000, 150000, 200000), labels=c(0, 20, 40, 50, 100, 150, 200), expand=c(0,0))+
+        scale_y_continuous("Biomass (1,000 mt)", breaks=c(0, 20000, 40000, 50000, 100000, 150000, 200000), labels=c(0, 20, 40, 50, 100, 150, 200), expand=c(0,0))+
         coord_cartesian(ylim=c(0, 200000))+
         ggtitle("Median Biomass Trajectories under Different Control Rules")+
         theme(
@@ -72,9 +73,9 @@ p1 <- ggplot(biomass.traj, aes(x=year, y=biomass, color=control.rule, group=cont
             panel.background = element_blank(),
             axis.line.x = element_line(),
             axis.line.y = element_line(),
-            axis.text.x = element_text(size=15),
-            axis.text.y = element_text(size=15),
-            axis.title = element_text(size=18, face="bold"),
+            axis.text.x = element_text(size=10),
+            axis.text.y = element_text(size=10),
+            axis.title = element_text(size=12),
             plot.title = element_blank()
         )+
         guides(fill="none", color="none")
@@ -118,7 +119,7 @@ p2 <- ggplot(dynamic.b0.raw %>% filter(year >= 2022), aes(x=year, y=dyn.b0, colo
         geom_vline(xintercept=2022+15, linetype="longdash", color="gray50")+
         scale_color_manual("Control Rule", values=as.vector(hcr.colors))+
         scale_x_continuous("Year", breaks=seq(1980, 2022+nyr, by=10), expand=c(0,0))+
-        scale_y_continuous("Biomass Relative to Unfished Conditions", breaks=seq(0.0, 1.0, 0.2), expand=c(0,0))+
+        scale_y_continuous("Biomass Relative to Unfished", breaks=seq(0.0, 1.0, 0.2), expand=c(0,0))+
         coord_cartesian(ylim=c(0, 1.05))+
         ggtitle("Dynamic Biomass Trajectories under Different Control Rules")+
         theme(
@@ -126,23 +127,31 @@ p2 <- ggplot(dynamic.b0.raw %>% filter(year >= 2022), aes(x=year, y=dyn.b0, colo
           panel.background = element_blank(),
           axis.line.x = element_line(),
           axis.line.y = element_line(),
-          axis.text.x = element_text(size=15),
-          axis.text.y = element_text(size=15),
-          axis.title = element_text(size=18, face="bold"),
+          axis.text.x = element_text(size=10),
+          axis.text.y = element_text(size=10),
+          axis.title = element_text(size=12),
           plot.title = element_blank()
         )+
-        guides(fill="none", color="none")
+        guides(fill="none", color=guide_legend(nrow=3,byrow=TRUE))
 p2
 
 ggsave(file.path(here::here(), "figures", "present", "rel_biomass_traj.png"), dpi=300, width=8, height=4, units="in")
 
 library(patchwork)
 
-(p1/p2)+plot_layout(guides="collect")+ plot_annotation(tag_levels = 'A')
+(p1/p2)+
+  plot_annotation(tag_levels = 'A') + 
+  plot_layout(guides="collect") & 
+  theme(
+        legend.text = element_text(size=10),
+        legend.position = 'bottom', 
+        legend.direction = "horizontal"
+  )
 
-ggsave(file.path(here::here(), "figures", "biomass_trajectories.png"), dpi=300, width=8, height=8, units="in")
+#ggsave(file.path(here::here(), "figures", "biomass_trajectories.png"), dpi=300, width=8, height=8, units="in")
 
-
+#ggsave(file.path(here::here(), "figures", "publication", "Fig5_biomass_trajectories.jpg"), dpi=300, width=170, height=190, units="mm")
+ggsave(file.path(here::here(), "figures", "publication", "Fig5_biomass_trajectories.pdf"), dpi=300, width=170, height=190, units="mm")
 
 
 

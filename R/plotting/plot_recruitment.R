@@ -35,7 +35,7 @@ nyr <- length(years)
 
 model.dir <- "/Users/jzahner/Desktop/Projects/basa/model/"#here::here("results/base/sim_649/year_0/model/")
 
-sim.rec.devs <- generate.recruitment.deviates(30, 0168)$devs
+sim.rec.devs <- generate.recruitment.deviates(30, 0998)$devs
 sim.age0.recs <- exp(5.7276+sim.rec.devs)
 sim.age3.recs <- sim.age0.recs*exp(-0.25)^3
 
@@ -93,16 +93,20 @@ ggplot(recruit.df) +
       "segment", x = 43, y = 2000, xend = 77, yend = 2000, size=2,
       arrow = arrow(type = "closed", length = unit(0.02, "npc"))
     )+
-    annotate("text", x=45, y=1900, label="Simulated", hjust=0, size=6)+
+    annotate("text", x=45, y=1850, label="Simulated", hjust=0, size=5)+
     ggtitle("Age-3 Recruitment")+
     theme_minimal()+
     theme(
       panel.grid = element_blank(),
       axis.line = element_line(),
-      plot.title = element_text(size=20),
-      axis.title = element_text(size=14),
-      axis.text = element_text(size=12),
+      plot.title = element_text(size=16),
+      axis.title = element_text(size=12),
+      axis.text = element_text(size=10),
       axis.ticks = element_line()
-    )
+    )+
+    guides(color="none")
 
-#ggsave("/Users/jzahner/Desktop/recruitment.eps", device="eps", dpi=320)
+#ggsave("/Users/jzahner/Desktop/recruitment.jpg", dpi=320)
+#ggsave(file.path(here::here(), "figures", "publication", "Fig2_recruitment.jpg"), dpi=300, width=170, height=105, units="mm")
+
+ggsave(file.path(here::here(), "figures", "publication", "Fig2_recruitment.pdf"), dpi=300, width=170, height=105, units="mm") 
